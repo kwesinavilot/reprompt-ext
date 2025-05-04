@@ -2,8 +2,19 @@
     "name": "reprompt",
     "displayName": "Reprompt 2.0",
     "description": "Optimize prompts via Perplexity Sonar API.",
-    "version": "0.0.1",
+    "version": "0.3.0",
     "publisher": "kwesinavilot",
+    "author": {
+        "name": "Kwesinavilot",
+        "url": "https://github.com/kwesinavilot"
+    },
+    "license": "MIT",
+    "pricing": "Free",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/kwesinavilot/reprompt-ext"
+    },
+    "homepage": "https://github.com/kwesinavilot/reprompt-ext",
     "engines": {
         "vscode": "^1.85.0",
         "node": ">=18.0.0"

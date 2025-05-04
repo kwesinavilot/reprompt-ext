@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.0] - 2024-06-09
+
+### Added
+- Rich markdown-like rendering for Sonar responses in the webview, including:
+  - Headings, lists, code blocks, inline code, and clickable links.
+  - Copy-to-clipboard button for code blocks.
+  - Collapsible sources panel and stats footer.
+  - Action buttons for refreshing and toggling sources.
+- Improved webview layout and styling for better readability and usability.
+- Unique message IDs for each response panel.
+- TypeScript interfaces for code block handling in the extension.
+
+### Changed
+- Refactored `renderSonarWebview` for clarity and maintainability.
+- Enhanced error handling and edge case support in markdown rendering.
+
+---
+
 ## [0.2.0] - 2024-06-09
 
 ### Added

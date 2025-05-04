@@ -6,6 +6,7 @@ A VS Code extension to optimize, run, and structure prompts using Perplexity Son
 
 - **Prompt Optimization:** Instantly improve your prompts for clarity and effectiveness.
 - **Prompt Execution:** Run prompts with Sonar and view responses in a formatted webview.
+- **Rich Markdown Rendering:** Sonar responses are displayed with headings, lists, code blocks (with copy button), and clickable links for a beautiful, readable experience.
 - **Structured Outputs:** Get responses as JSON or in custom formats (advanced).
 - **Inline Decorations:** Highlights XML tags (`<context>`, `<instruction>`, `<examples>`, `<format>`) after optimization.
 - **Easy Access:** Use via Command Palette, context menu, or keyboard shortcuts.
@@ -15,7 +16,7 @@ A VS Code extension to optimize, run, and structure prompts using Perplexity Son
 
 1. Open VS Code.
 2. Go to Extensions (`Ctrl+Shift+X`).
-3. Search for `Reprompt` and install, or run:
+3. Search for `kwesinavilot.reprompt` and install, or run:
    ```
    ext install kwesinavilot.reprompt
    ```
@@ -24,8 +25,8 @@ A VS Code extension to optimize, run, and structure prompts using Perplexity Son
 
 1. Open Command Palette (`Ctrl+Shift+P`).
 2. Type `Preferences: Open Settings (UI)` and press Enter.
-3. Search for `reprompt.sonarApiKey`. or go to the 'Extensions' section and look for 'Reprompt'.
-4. Enter your Perplexity Sonar API key into the field.
+3. Search for `reprompt.sonarApiKey`.
+4. Enter your Perplexity Sonar API key.
 
 ## Usage
 
@@ -39,7 +40,7 @@ A VS Code extension to optimize, run, and structure prompts using Perplexity Son
 
 - Select a prompt or leave the cursor in a prompt file.
 - Press `Ctrl+Shift+R` or right-click and choose **Reprompt: Run with Sonar**.
-- The response appears in a webview with syntax highlighting.
+- The response appears in a webview with rich formatting, code blocks, and a stats footer.
 
 ### Tips
 
