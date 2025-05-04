@@ -1,0 +1,114 @@
+{
+    "name": "reprompt",
+    "displayName": "Reprompt 2.0",
+    "description": "Optimize prompts via Perplexity Sonar API.",
+    "version": "0.0.1",
+    "publisher": "kwesinavilot",
+    "engines": {
+        "vscode": "^1.85.0",
+        "node": ">=18.0.0"
+    },
+    "categories": [
+        "Other",
+        "Programming Languages",
+        "AI",
+        "Machine Learning"
+    ],
+    "keywords": [
+        "vscode",
+        "extension",
+        "reprompt",
+        "perplexity",
+        "sonar",
+        "ai",
+        "machine learning",
+        "prompt",
+        "optimization",
+        "code",
+        "prompt engineering",
+        "prompt optimization",
+        "prompt improvement"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "reprompt.optimize",
+                "title": "Reprompt: Optimize Prompt"
+            },
+            {
+                "command": "reprompt.runSonar",
+                "title": "Reprompt: Run with Sonar"
+            }
+        ],
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "reprompt.optimize",
+                    "when": "resourceExtname == .md || resourceExtname == .reprompt",
+                    "group": "navigation"
+                },
+                {
+                    "command": "reprompt.runSonar",
+                    "when": "resourceExtname == .md || resourceExtname == .reprompt",
+                    "group": "navigation"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "reprompt.optimize",
+                    "when": "editorTextFocus"
+                },
+                {
+                    "command": "reprompt.runSonar",
+                    "when": "editorTextFocus"
+                }
+            ]
+        },
+        "keybindings": [
+            {
+                "command": "reprompt.optimize",
+                "key": "ctrl+shift+o",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "reprompt.runSonar",
+                "key": "ctrl+shift+r",
+                "when": "editorTextFocus"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Reprompt",
+            "properties": {
+                "reprompt.sonarApiKey": {
+                    "type": "string",
+                    "description": "Perplexity Sonar API key."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "lint": "eslint src --ext ts",
+        "format": "prettier --write src",
+        "package": "vsce package",
+        "publish": "vsce publish"
+    },
+    "devDependencies": {
+        "@types/node": "^20.x",
+        "@types/vscode": "^1.85.0",
+        "@typescript-eslint/eslint-plugin": "^6.15.0",
+        "@typescript-eslint/parser": "^6.15.0",
+        "@vscode/test-electron": "^2.3.8",
+        "eslint": "^8.56.0",
+        "prettier": "^2.0.0",
+        "typescript": "^5.3.3",
+        "vsce": "^2.0.0"
+    },
+    "dependencies": {
+        "node-fetch": "^2.7.0"
+    }
+}
