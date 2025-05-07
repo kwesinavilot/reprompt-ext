@@ -12,16 +12,30 @@ interface CodeBlockHtml {
   html: string;
 }
 
+const outputChannel = vscode.window.createOutputChannel('Reprompt');
+
 export function activate(context: vscode.ExtensionContext) {
+  outputChannel.appendLine('Reprompt extension activated');
+
   context.subscriptions.push(
     vscode.commands.registerCommand('reprompt.optimize', optimizePrompt),
-    vscode.commands.registerCommand('reprompt.runSonar', runWithSonar)
+    vscode.commands.registerCommand('reprompt.runSonar', () => runWithSonar(context)),
+    outputChannel,
+    vscode.commands.registerCommand('reprompt.test', () => {
+      outputChannel.show();
+      outputChannel.appendLine('Test command executed successfully');
+      vscode.window.showInformationMessage('Reprompt test command works!');
+    })
   );
 }
 
 async function optimizePrompt() {
+  outputChannel.appendLine('Optimize prompt command triggered');
   const editor = vscode.window.activeTextEditor;
-  if (!editor) { return; }
+  if (!editor) {
+    outputChannel.appendLine('No active editor found');
+    return;
+  }
   const selection = editor.selection;
   const raw = editor.document.getText(selection);
   if (!raw) { vscode.window.showErrorMessage('No text selected.'); return; }
@@ -36,26 +50,56 @@ async function optimizePrompt() {
         title: 'Optimizing prompt with Sonar...',
         cancellable: false
       },
-      async () => {
+      async (progress) => {
+        // Initial progress
+        progress.report({ message: 'Preparing request...' });
+        await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
+        
+        // Sending request
+        progress.report({ message: 'Sending request to Sonar API...' });
         const optimized = await optimizeWithSonar(raw, apiKey);
+        
+        // Processing response
+        progress.report({ message: 'Processing optimized prompt...' });
+        await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
+        
+        // Applying changes
+        progress.report({ message: 'Applying changes to document...' });
         await editor.edit(editBuilder => editBuilder.replace(selection, optimized));
+        
+        // Highlighting
+        progress.report({ message: 'Highlighting prompt structure...' });
         highlightXmlTags(editor, selection.start, optimized);
+        
+        // Done
+        progress.report({ message: 'Optimization complete!' });
       }
     );
+    
+    // Show success message after completion
+    vscode.window.showInformationMessage('Prompt optimized successfully!');
   } catch (err: any) {
+    outputChannel.appendLine(`Optimization error: ${err.message}`);
     vscode.window.showErrorMessage('Sonar optimization failed: ' + err.message);
   }
 }
 
-async function runWithSonar() {
+async function runWithSonar(context: vscode.ExtensionContext) {
+  outputChannel.appendLine('Run with Sonar command triggered');
   const editor = vscode.window.activeTextEditor;
-  if (!editor) { return; }
+  if (!editor) { 
+    outputChannel.appendLine('No active editor found');
+    return; 
+  }
   const selection = editor.selection;
   const prompt = editor.document.getText(selection) || editor.document.getText();
   if (!prompt) { vscode.window.showErrorMessage('No prompt found.'); return; }
 
   const apiKey = vscode.workspace.getConfiguration().get<string>('reprompt.sonarApiKey');
   if (!apiKey) { vscode.window.showErrorMessage('Set reprompt.sonarApiKey in settings.'); return; }
+
+  // Start timing the process
+  const startTime = Date.now();
 
   try {
     await vscode.window.withProgress(
@@ -64,18 +108,84 @@ async function runWithSonar() {
         title: 'Running prompt with Sonar...',
         cancellable: false
       },
-      async () => {
+      async (progress) => {
+        // Initial progress
+        progress.report({ message: 'Preparing prompt...' });
+        await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
+        
+        // Sending request
+        progress.report({ message: 'Sending request to Sonar API...' });
         const result = await runWithSonarApi(prompt, apiKey);
+        
+        // Calculate elapsed time
+        const elapsedTime = Date.now() - startTime;
+        // Add elapsed time to the result object
+        result.elapsedTime = elapsedTime;
+        
+        // Processing response
+        progress.report({ message: 'Processing response...' });
+        await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
+        
+        // Creating webview
+        progress.report({ message: 'Creating response view...' });
         const panel = vscode.window.createWebviewPanel(
           'sonarResponse',
           'Sonar Response',
           vscode.ViewColumn.Beside,
           { enableScripts: true }
         );
+        
+        // Setting up message handling
+        panel.webview.onDidReceiveMessage(
+          message => {
+            switch (message.command) {
+              case 'regenerate':
+                outputChannel.appendLine(`Regenerate request received for message: ${message.messageId}`);
+                // Start timing for regeneration
+                const regenStartTime = Date.now();
+                
+                // Handle regeneration with progress notification
+                vscode.window.withProgress(
+                  {
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Regenerating response...',
+                    cancellable: false
+                  },
+                  async (regProgress) => {
+                    regProgress.report({ message: 'Sending request to Sonar API...' });
+                    try {
+                      const newResult = await runWithSonarApi(prompt, apiKey);
+                      // Calculate elapsed time for regeneration
+                      const regenElapsedTime = Date.now() - regenStartTime;
+                      // Add elapsed time to the result object
+                      newResult.elapsedTime = regenElapsedTime;
+                      
+                      regProgress.report({ message: 'Updating view...' });
+                      panel.webview.html = renderSonarWebview(newResult);
+                      regProgress.report({ message: 'Regeneration complete!' });
+                    } catch (err: any) {
+                      vscode.window.showErrorMessage('Regeneration failed: ' + err.message);
+                      outputChannel.appendLine(`Regeneration error: ${err.message}`);
+                    }
+                  }
+                );
+                return;
+            }
+          },
+          undefined,
+          context.subscriptions
+        );
+        
+        // Rendering response
+        progress.report({ message: 'Rendering response...' });
         panel.webview.html = renderSonarWebview(result);
+        
+        // Done
+        progress.report({ message: 'Response ready!' });
       }
     );
   } catch (err: any) {
+    outputChannel.appendLine(`Run with Sonar error: ${err.message}`);
     vscode.window.showErrorMessage('Sonar run failed: ' + err.message);
   }
 }
@@ -137,13 +247,28 @@ function renderSonarWebview(result: any): string {
   const sourcesCount = citations.length;
   const sourcesText = sourcesCount ? `${sourcesCount} Sources` : 'No Sources';
   const messageId = 'msg-' + Date.now();
+  
+  // Get elapsed time from result object
+  const elapsedTime = result?.elapsedTime || 0;
+  
+  // Format elapsed time
+  let formattedTime = '';
+  if (elapsedTime < 1000) {
+    formattedTime = `${elapsedTime}ms`;
+  } else if (elapsedTime < 60000) {
+    formattedTime = `${(elapsedTime / 1000).toFixed(2)}s`;
+  } else {
+    const minutes = Math.floor(elapsedTime / 60000);
+    const seconds = ((elapsedTime % 60000) / 1000).toFixed(1);
+    formattedTime = `${minutes}m ${seconds}s`;
+  }
 
   // Process content to handle markdown-like formatting
   let processedContent = content;
 
   // Convert markdown code blocks to HTML
   processedContent = processedContent.replace(
-    /```(\w*)([\s\S]*?)```/g,
+    /(\w*)([\s\S]*?)/g,
     (_: string, lang: string, code: string): string => {
       const codeId: string = `code-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const html: string = `<div class="code-block">
@@ -202,9 +327,9 @@ function renderSonarWebview(result: any): string {
   const sourcesSection = citations.length ? `<div class="sources-panel" id="sources-panel" style="display: none;">
     <h3>Sources</h3>
     <ul class="sources-list">
-      ${citations.map((source: string) => 
-        `<li><a href="${source}" target="_blank">${source}</a></li>`
-      ).join('')}
+      ${citations.map((source: string) =>
+    `<li><a href="${source}" target="_blank">${source}</a></li>`
+  ).join('')}
     </ul>
   </div>` : '';
 
@@ -213,7 +338,8 @@ function renderSonarWebview(result: any): string {
     model ? `<span class="stat-item"><b>Model:</b> ${model}</span>` : '',
     usage.prompt_tokens !== undefined ? `<span class="stat-item"><b>Prompt:</b> ${usage.prompt_tokens} tokens</span>` : '',
     usage.completion_tokens !== undefined ? `<span class="stat-item"><b>Completion:</b> ${usage.completion_tokens} tokens</span>` : '',
-    usage.total_tokens !== undefined ? `<span class="stat-item"><b>Total:</b> ${usage.total_tokens} tokens</span>` : ''
+    usage.total_tokens !== undefined ? `<span class="stat-item"><b>Total:</b> ${usage.total_tokens} tokens</span>` : '',
+    `<span class="stat-item"><b>Time:</b> ${formattedTime}</span>` // Add the elapsed time
   ].filter(Boolean).join('');
 
   return `
@@ -451,9 +577,9 @@ function renderSonarWebview(result: any): string {
 
 function escapeHtml(text: string): string {
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>');
 }
 
 function syntaxHighlight(json: string) {

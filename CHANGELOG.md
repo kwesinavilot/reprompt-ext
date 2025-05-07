@@ -4,7 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.3.0] - 2024-06-09
+# Changelog
+
+## [0.3.0] - 2025-05-07
+
+### Added
+- Output channel for improved logging and debugging
+- Test command (`reprompt.test`) to verify extension functionality
+- Time tracking for API requests showing how long operations take
+- Detailed progress notifications with step-by-step updates
+
+### Improved
+- Enhanced error handling with better error messages and logging
+- More responsive UI during API operations with progress updates
+- Webview message handling for regeneration requests
+- Code organization and readability
+
+### Fixed
+- Proper handling of regeneration requests from the webview
+- Improved HTML escaping in rendered content
+- Better context passing to ensure extension state is maintained
+
+## [0.3.0] - 2025-05-04
 
 ### Added
 - Rich markdown-like rendering for Sonar responses in the webview, including:
@@ -22,7 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.2.0] - 2024-06-09
+## [0.2.0] - 2025-05-04
 
 ### Added
 - Structured output support: request JSON (via JSON Schema) or Regex-matched responses from Sonar.
@@ -36,7 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.1.1] - 2024-06-08
+## [0.1.1] - 2024-05-04
 
 ### Added
 - Inline decorations to highlight injected XML tags (`<context>`, `<instruction>`, `<examples>`, `<format>`) after optimization.
@@ -49,7 +70,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.1.0] - 2024-06-07
+## [0.1.0] - 2025-05-04
 
 ### Added
 - Initial VS Code extension scaffold with TypeScript, ESLint, Prettier.
