@@ -32,7 +32,7 @@ class SonarApiService {
      * Generic chat completions endpoint.
      */
     async chatCompletions(params) {
-        const model = params.model || 'sonar-pro';
+        const model = params.model || 'sonar';
         const body = {
             model,
             messages: params.messages,

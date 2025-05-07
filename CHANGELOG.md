@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 # Changelog
 
+## [0.5.0] - 2024-05-10
+
+### Added
+- Themed progress messages with random selection for variety
+- Enhanced system prompt for better prompt transformations
+- Optional transformation statistics view (configurable in settings)
+
+### Improved
+- More responsive UI during API operations with progress updates
+- Renamed "optimize" to "transform" for clarity of purpose
+- Asynchronous stats calculation to prevent UI blocking
+- Updated README with new features
+
+### Fixed
+- Performance issues when displaying transformation statistics
+
 ## [0.4.0] - 2025-05-07
 
 ### Added

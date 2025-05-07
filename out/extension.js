@@ -98,6 +98,17 @@ async function transformPrompt() {
         vscode.window.showErrorMessage('Set reprompt.sonarApiKey in settings.');
         return;
     }
+    // Check if stats should be shown
+    const showStats = vscode.workspace.getConfiguration().get('reprompt.showTransformationStats');
+    // Start timing the process
+    const startTime = Date.now();
+    // Get original prompt stats if needed
+    let originalLength = 0;
+    let originalWords = 0;
+    if (showStats) {
+        originalLength = raw.length;
+        originalWords = raw.split(/\s+/).filter(word => word.length > 0).length;
+    }
     // Select a random theme for this operation
     const theme = getRandomTheme();
     outputChannel.appendLine(`Using theme with first message: ${theme.preparing}`);
@@ -124,9 +135,136 @@ async function transformPrompt() {
             highlightXmlTags(editor, selection.start, transformed);
             // Done
             progress.report({ message: theme.completed });
+            // Calculate stats after all document operations are complete
+            if (showStats) {
+                // Calculate stats in a non-blocking way
+                setTimeout(() => {
+                    try {
+                        const transformedLength = transformed.length;
+                        const transformedWords = transformed.split(/\s+/).filter(word => word.length > 0).length;
+                        const expansionRatio = parseFloat((transformedLength / originalLength).toFixed(2));
+                        // Calculate elapsed time
+                        const elapsedTime = Date.now() - startTime;
+                        let formattedTime = '';
+                        if (elapsedTime < 1000) {
+                            formattedTime = `${elapsedTime}ms`;
+                        }
+                        else if (elapsedTime < 60000) {
+                            formattedTime = `${(elapsedTime / 1000).toFixed(2)}s`;
+                        }
+                        else {
+                            const minutes = Math.floor(elapsedTime / 60000);
+                            const seconds = ((elapsedTime % 60000) / 1000).toFixed(1);
+                            formattedTime = `${minutes}m ${seconds}s`;
+                        }
+                        // Create a webview panel to show transformation stats
+                        const panel = vscode.window.createWebviewPanel('transformStats', 'Prompt Transformation Stats', vscode.ViewColumn.Beside, { enableScripts: true });
+                        panel.webview.html = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                  <meta charset="UTF-8">
+                  <title>Transformation Statistics</title>
+                  <style>
+                    body { 
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+                      background: #1e1e1e; 
+                      color: #d4d4d4; 
+                      margin: 0;
+                      padding: 20px;
+                      line-height: 1.5;
+                    }
+                    .stats-container {
+                      background: #252526;
+                      border-radius: 8px;
+                      padding: 20px;
+                      margin-bottom: 20px;
+                    }
+                    .stats-header {
+                      font-size: 1.5em;
+                      margin-bottom: 15px;
+                      color: #e6e6e6;
+                      border-bottom: 1px solid #444;
+                      padding-bottom: 10px;
+                    }
+                    .stat-row {
+                      display: flex;
+                      justify-content: space-between;
+                      margin-bottom: 10px;
+                      padding: 8px 0;
+                      border-bottom: 1px solid #333;
+                    }
+                    .stat-label {
+                      font-weight: bold;
+                      color: #9cdcfe;
+                    }
+                    .stat-value {
+                      color: #ce9178;
+                    }
+                    .improvement {
+                      color: #6A9955;
+                    }
+                    .summary {
+                      margin-top: 20px;
+                      padding: 15px;
+                      background: #2d2d2d;
+                      border-radius: 6px;
+                      border-left: 4px solid #9cdcfe;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <div class="stats-container">
+                    <div class="stats-header">Prompt Transformation Statistics</div>
+                    
+                    <div class="stat-row">
+                      <span class="stat-label">Original Length:</span>
+                      <span class="stat-value">${originalLength} characters</span>
+                    </div>
+                    
+                    <div class="stat-row">
+                      <span class="stat-label">Transformed Length:</span>
+                      <span class="stat-value">${transformedLength} characters</span>
+                    </div>
+                    
+                    <div class="stat-row">
+                      <span class="stat-label">Original Word Count:</span>
+                      <span class="stat-value">${originalWords} words</span>
+                    </div>
+                    
+                    <div class="stat-row">
+                      <span class="stat-label">Transformed Word Count:</span>
+                      <span class="stat-value">${transformedWords} words</span>
+                    </div>
+                    
+                    <div class="stat-row">
+                      <span class="stat-label">Expansion Ratio:</span>
+                      <span class="stat-value">${expansionRatio}x</span>
+                    </div>
+                    
+                    <div class="stat-row">
+                      <span class="stat-label">Processing Time:</span>
+                      <span class="stat-value">${formattedTime}</span>
+                    </div>
+                    
+                    <div class="summary">
+                      Your prompt was expanded by ${Math.round((expansionRatio - 1) * 100)}% with structured tags and detailed instructions.
+                    </div>
+                  </div>
+                </body>
+                </html>
+              `;
+                    }
+                    catch (err) {
+                        outputChannel.appendLine(`Error showing stats: ${err}`);
+                    }
+                }, 100); // Small delay to ensure UI operations complete first
+            }
+            // Show a simple notification regardless of stats setting
+            const expansionPercent = Math.round(((transformed.length / raw.length) - 1) * 100);
+            vscode.window.showInformationMessage(`Prompt transformed successfully! Expanded by ${expansionPercent}%.`);
         });
-        // Show success message after completion
-        vscode.window.showInformationMessage('Prompt transformed successfully!');
     }
     catch (err) {
         outputChannel.appendLine(`Transformation error: ${err.message}`);

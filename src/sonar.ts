@@ -62,7 +62,7 @@ export class SonarApiService {
    * Generic chat completions endpoint.
    */
   async chatCompletions(params: ChatCompletionsParams): Promise<SonarApiResponse> {
-    const model = params.model || 'sonar-pro';
+    const model = params.model || 'sonar';
     const body: any = {
       model,
       messages: params.messages,

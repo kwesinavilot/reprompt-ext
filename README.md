@@ -1,14 +1,16 @@
 # Reprompt 2.0
 
-A VS Code extension to optimize, run, and structure prompts using Perplexity Sonar API.
+A VS Code extension to transform, run, and structure prompts using Perplexity Sonar API.
 
 ## Features
 
-- **Prompt Optimization:** Instantly improve your prompts for clarity and effectiveness.
+- **Prompt Transformation:** Turn simple ideas into comprehensive, structured prompts with a single command.
 - **Prompt Execution:** Run prompts with Sonar and view responses in a formatted webview.
 - **Rich Markdown Rendering:** Sonar responses are displayed with headings, lists, code blocks (with copy button), and clickable links for a beautiful, readable experience.
 - **Structured Outputs:** Get responses as JSON or in custom formats (advanced).
-- **Inline Decorations:** Highlights XML tags (`<context>`, `<instruction>`, `<examples>`, `<format>`) after optimization.
+- **Inline Decorations:** Highlights XML tags (`<context>`, `<instruction>`, `<examples>`, `<format>`) after transformation.
+- **Progress Themes:** Enjoy fun, themed progress notifications while waiting for responses.
+- **Performance Stats:** Track response times and see detailed transformation statistics (optional).
 - **Easy Access:** Use via Command Palette, context menu, or keyboard shortcuts.
 - **No Local AI:** All processing is done via Perplexity Sonar API.
 
@@ -25,32 +27,71 @@ A VS Code extension to optimize, run, and structure prompts using Perplexity Son
 
 1. Open Command Palette (`Ctrl+Shift+P`).
 2. Type `Preferences: Open Settings (UI)` and press Enter.
-3. Search for `reprompt.sonarApiKey`.
-4. Enter your Perplexity Sonar API key.
+3. Search for `reprompt` to see all available settings:
+   - `reprompt.sonarApiKey`: Your Perplexity Sonar API key (required)
+   - `reprompt.showTransformationStats`: Enable/disable detailed transformation statistics (default: false)
 
 ## Usage
 
-### Optimize a Prompt
+### Transform a Prompt
 
-- Select text in a `.md` or `.reprompt` file.
-- Press `Ctrl+Shift+O` or right-click and choose **Reprompt: Optimize Prompt**.
-- The selection is replaced with an optimized version and XML tags are highlighted.
+Transform a simple idea into a comprehensive, structured prompt:
+
+1. Create a new `.md` or `.reprompt` file.
+2. Write a simple prompt idea (e.g., "build a crud for a ghanaian ecommerce shoe store").
+3. Select your text.
+4. Press `Ctrl+Shift+O` or right-click and choose **Reprompt: Transform Prompt**.
+5. Watch as your simple idea is transformed into a detailed, structured prompt with XML tags.
 
 ### Run a Prompt
 
-- Select a prompt or leave the cursor in a prompt file.
-- Press `Ctrl+Shift+R` or right-click and choose **Reprompt: Run with Sonar**.
-- The response appears in a webview with rich formatting, code blocks, and a stats footer.
+Execute a prompt and see the AI's response:
 
-### Tips
+1. Select a prompt or leave the cursor in a prompt file.
+2. Press `Ctrl+Shift+R` or right-click and choose **Reprompt: Run with Sonar**.
+3. The response appears in a webview with rich formatting, code blocks, and a stats footer.
+4. Use the refresh button to regenerate the response if needed.
 
-- Works best with `.md` and `.reprompt` files.
-- You can also access commands from the Command Palette (`Ctrl+Shift+P`).
+### View Transformation Statistics
+
+If you've enabled transformation statistics in settings:
+
+1. After transforming a prompt, a statistics panel will open showing:
+   - Original vs. transformed length and word count
+   - Expansion ratio
+   - Processing time
+   - Summary of changes
+
+### Developer Guide: Creating Effective Prompts
+
+#### Basic Workflow
+
+1. **Start Simple**: Begin with a clear, concise description of what you need.
+2. **Transform**: Use the Transform command to expand your idea into a structured prompt.
+3. **Refine**: Adjust the transformed prompt if needed to add specific details.
+4. **Execute**: Run the prompt to get your response.
+5. **Iterate**: Based on the response, refine your prompt further if needed.
+
+#### Prompt Structure
+
+The transformation process adds structure using XML-style tags:
+
+- `<context>`: Background information and constraints
+- `<instruction>`: The main task or request
+- `<examples>`: Sample inputs/outputs (if applicable)
+- `<format>`: How the response should be structured
+
+#### Example Workflow
+
+1. **Simple idea**: "create a voice assistant for elderly people"
+2. **After transformation**: A comprehensive prompt with context about elderly users, specific features needed, accessibility considerations, and format requirements.
+3. **Run the prompt**: Get a detailed response that follows your structured requirements.
 
 ## Commands & Shortcuts
 
-- **Reprompt: Optimize Prompt** — `Ctrl+Shift+O`
+- **Reprompt: Transform Prompt** — `Ctrl+Shift+O`
 - **Reprompt: Run with Sonar** — `Ctrl+Shift+R`
+- **Reprompt: Test** — (No default shortcut, accessible via Command Palette)
 
 ## FAQ
 
@@ -62,6 +103,18 @@ A: Visit [perplexity.ai](https://www.perplexity.ai/) and sign up for API access.
 
 **Q: Can I use this with other file types?**  
 A: The extension is optimized for `.md` and `.reprompt` files, but commands can be run from the Command Palette in any text editor.
+
+**Q: Why do I see different progress messages each time?**  
+A: The extension randomly selects from themed message sets to make waiting more enjoyable.
+
+**Q: How can I see detailed statistics about my transformations?**  
+A: Enable the `reprompt.showTransformationStats` setting in your VS Code preferences.
+
+## Troubleshooting
+
+- **Command not working?** Make sure you've set your Sonar API key in settings.
+- **Transformation taking too long?** Check your internet connection and Sonar API status.
+- **Need more information?** Open the Output panel and select "Reprompt" from the dropdown to see detailed logs.
 
 ## License
 

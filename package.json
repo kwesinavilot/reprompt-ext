@@ -95,6 +95,11 @@
                 "reprompt.sonarApiKey": {
                     "type": "string",
                     "description": "Perplexity Sonar API key."
+                },
+                "reprompt.showTransformationStats": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show detailed statistics after prompt transformation"
                 }
             }
         }
