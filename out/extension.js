@@ -39,14 +39,49 @@ const sonar_1 = require("./sonar");
 const outputChannel = vscode.window.createOutputChannel('Reprompt');
 function activate(context) {
     outputChannel.appendLine('Reprompt extension activated');
-    context.subscriptions.push(vscode.commands.registerCommand('reprompt.optimize', optimizePrompt), vscode.commands.registerCommand('reprompt.runSonar', () => runWithSonar(context)), outputChannel, vscode.commands.registerCommand('reprompt.test', () => {
+    context.subscriptions.push(vscode.commands.registerCommand('reprompt.optimize', transformPrompt), vscode.commands.registerCommand('reprompt.runSonar', () => runWithSonar(context)), outputChannel, vscode.commands.registerCommand('reprompt.test', () => {
         outputChannel.show();
         outputChannel.appendLine('Test command executed successfully');
         vscode.window.showInformationMessage('Reprompt test command works!');
     }));
 }
-async function optimizePrompt() {
-    outputChannel.appendLine('Optimize prompt command triggered');
+// Define the themes at the top of your file or in a separate themes.ts file
+const progressThemes = [
+    // Magical Theme
+    {
+        preparing: 'Summoning the prompt wizards...',
+        sending: 'Casting transformation spells...',
+        processing: 'Deciphering magical runes...',
+        applying: 'Infusing document with enchantments...',
+        highlighting: 'Adding magical highlights...',
+        completed: 'The spell is complete!'
+    },
+    // Tech/AI Theme
+    {
+        preparing: 'Initializing neural networks...',
+        sending: 'Transmitting to AI headquarters...',
+        processing: 'Parsing quantum algorithms...',
+        applying: 'Integrating enhanced data structures...',
+        highlighting: 'Applying semantic highlighting...',
+        completed: 'Transformation protocol complete!'
+    },
+    // Cooking/Recipe Theme
+    {
+        preparing: 'Gathering prompt ingredients...',
+        sending: 'Mixing in the secret sauce...',
+        processing: 'Letting flavors develop...',
+        applying: 'Plating your gourmet prompt...',
+        highlighting: 'Adding the final garnish...',
+        completed: 'Your prompt is served!'
+    }
+];
+// Function to get a random theme
+function getRandomTheme() {
+    const randomIndex = Math.floor(Math.random() * progressThemes.length);
+    return progressThemes[randomIndex];
+}
+async function transformPrompt() {
+    outputChannel.appendLine('Transform prompt command triggered');
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         outputChannel.appendLine('No active editor found');
@@ -63,36 +98,39 @@ async function optimizePrompt() {
         vscode.window.showErrorMessage('Set reprompt.sonarApiKey in settings.');
         return;
     }
+    // Select a random theme for this operation
+    const theme = getRandomTheme();
+    outputChannel.appendLine(`Using theme with first message: ${theme.preparing}`);
     try {
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: 'Optimizing prompt with Sonar...',
+            title: 'Transforming prompt with Sonar...',
             cancellable: false
         }, async (progress) => {
             // Initial progress
-            progress.report({ message: 'Preparing request...' });
+            progress.report({ message: theme.preparing });
             await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
             // Sending request
-            progress.report({ message: 'Sending request to Sonar API...' });
-            const optimized = await (0, sonar_1.optimizeWithSonar)(raw, apiKey);
+            progress.report({ message: theme.sending });
+            const transformed = await (0, sonar_1.optimizeWithSonar)(raw, apiKey);
             // Processing response
-            progress.report({ message: 'Processing optimized prompt...' });
+            progress.report({ message: theme.processing });
             await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
             // Applying changes
-            progress.report({ message: 'Applying changes to document...' });
-            await editor.edit(editBuilder => editBuilder.replace(selection, optimized));
+            progress.report({ message: theme.applying });
+            await editor.edit(editBuilder => editBuilder.replace(selection, transformed));
             // Highlighting
-            progress.report({ message: 'Highlighting prompt structure...' });
-            highlightXmlTags(editor, selection.start, optimized);
+            progress.report({ message: theme.highlighting });
+            highlightXmlTags(editor, selection.start, transformed);
             // Done
-            progress.report({ message: 'Optimization complete!' });
+            progress.report({ message: theme.completed });
         });
         // Show success message after completion
-        vscode.window.showInformationMessage('Prompt optimized successfully!');
+        vscode.window.showInformationMessage('Prompt transformed successfully!');
     }
     catch (err) {
-        outputChannel.appendLine(`Optimization error: ${err.message}`);
-        vscode.window.showErrorMessage('Sonar optimization failed: ' + err.message);
+        outputChannel.appendLine(`Transformation error: ${err.message}`);
+        vscode.window.showErrorMessage('Sonar transformation failed: ' + err.message);
     }
 }
 async function runWithSonar(context) {
@@ -115,6 +153,9 @@ async function runWithSonar(context) {
     }
     // Start timing the process
     const startTime = Date.now();
+    // Select a random theme for this operation
+    const theme = getRandomTheme();
+    outputChannel.appendLine(`Using theme with first message: ${theme.preparing}`);
     try {
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -122,20 +163,20 @@ async function runWithSonar(context) {
             cancellable: false
         }, async (progress) => {
             // Initial progress
-            progress.report({ message: 'Preparing prompt...' });
+            progress.report({ message: theme.preparing });
             await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
             // Sending request
-            progress.report({ message: 'Sending request to Sonar API...' });
+            progress.report({ message: theme.sending });
             const result = await (0, sonar_1.runWithSonarApi)(prompt, apiKey);
             // Calculate elapsed time
             const elapsedTime = Date.now() - startTime;
             // Add elapsed time to the result object
             result.elapsedTime = elapsedTime;
             // Processing response
-            progress.report({ message: 'Processing response...' });
+            progress.report({ message: theme.processing });
             await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
             // Creating webview
-            progress.report({ message: 'Creating response view...' });
+            progress.report({ message: theme.applying });
             const panel = vscode.window.createWebviewPanel('sonarResponse', 'Sonar Response', vscode.ViewColumn.Beside, { enableScripts: true });
             // Setting up message handling
             panel.webview.onDidReceiveMessage(message => {
@@ -170,10 +211,10 @@ async function runWithSonar(context) {
                 }
             }, undefined, context.subscriptions);
             // Rendering response
-            progress.report({ message: 'Rendering response...' });
+            progress.report({ message: theme.highlighting });
             panel.webview.html = renderSonarWebview(result);
             // Done
-            progress.report({ message: 'Response ready!' });
+            progress.report({ message: theme.completed });
         });
     }
     catch (err) {

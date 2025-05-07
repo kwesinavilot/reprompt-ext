@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 # Changelog
 
+## [0.4.0] - 2025-05-07
+
+### Added
+- Output channel for improved logging and debugging
+- Test command (`reprompt.test`) to verify extension functionality
+- Time tracking for API requests showing how long operations take
+- Detailed progress notifications with step-by-step updates
+- Themed progress messages with random selection for variety
+- Enhanced system prompt for better prompt transformations
+
+### Improved
+- Enhanced error handling with better error messages and logging
+- More responsive UI during API operations with progress updates
+- Webview message handling for regeneration requests
+- Code organization and readability
+- Renamed "optimize" to "transform" for clarity of purpose
+
+### Fixed
+- Proper handling of regeneration requests from the webview
+- Improved HTML escaping in rendered content
+- Better context passing to ensure extension state is maintained
+
 ## [0.3.0] - 2025-05-07
 
 ### Added

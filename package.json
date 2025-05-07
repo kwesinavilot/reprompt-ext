@@ -45,7 +45,7 @@
         "commands": [
             {
                 "command": "reprompt.optimize",
-                "title": "Reprompt: Optimize Prompt"
+                "title": "Reprompt: Transform Prompt"
             },
             {
                 "command": "reprompt.runSonar",

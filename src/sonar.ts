@@ -43,7 +43,7 @@ export class SonarApiService {
   private async fetchApi(path: string, body: any): Promise<any> {
     // Use require instead of dynamic import
     const fetch = require('node-fetch');
-    
+
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers: {
@@ -53,7 +53,7 @@ export class SonarApiService {
       },
       body: JSON.stringify(body)
     });
-    
+
     if (!response.ok) throw new Error(await response.text());
     return await response.json();
   }
@@ -137,7 +137,64 @@ export class SonarApiService {
    * Optimize a prompt using a system message.
    */
   async optimizePrompt(raw: string): Promise<string> {
-    const systemPrompt = 'Optimize the following prompt for clarity, specificity, and effectiveness. Return only the improved prompt.';
+    const systemPrompt = `You are an expert prompt engineer specializing in transforming vague developer requirements into comprehensive, structured prompts. 
+
+When given a simple or unclear prompt, transform it into a detailed, well-structured prompt that:
+
+1. Identifies the core functionality needed (e.g., CRUD operations, authentication, UI components)
+2. Specifies relevant business domain details (e.g., ecommerce, healthcare, education)
+3. Includes cultural or regional context when mentioned (e.g., Ghanaian market, European regulations)
+4. Structures information using <context>, <instruction>, <examples>, and <format> tags
+5. Adds necessary technical specifications (frameworks, languages, database requirements)
+6. Anticipates edge cases and user experience considerations
+7. Provides clear acceptance criteria
+
+Return ONLY the improved prompt with appropriate structure and detail - NO explanations or meta-commentary.
+
+Example transformation:
+Input: "build a crud for a ghanaian ecommerce shoe store"
+Output: 
+<context>
+Creating a CRUD application for a Ghanaian e-commerce shoe store. The application should respect local business practices, currency (Ghana Cedi - GHS), and shipping options within Ghana. Consider cultural preferences in UI design and product categorization.
+</context>
+
+<instruction>
+Develop a complete CRUD application for a Ghanaian shoe e-commerce platform with the following features:
+
+1. Product management:
+   - Create, read, update, delete shoe products
+   - Fields: name, description, price (in GHS), sizes, colors, material, brand, category, images, stock quantity
+   - Support for local shoe styles and categories
+
+2. User management:
+   - Customer registration and authentication
+   - Admin/staff roles with appropriate permissions
+   - User profiles with shipping addresses
+
+3. Order processing:
+   - Shopping cart functionality
+   - Checkout process with Ghanaian payment options (Mobile Money, bank transfers)
+   - Order tracking and history
+   - Support for local delivery services
+
+4. Search and filtering:
+   - Product search by name, category, size, price range
+   - Sorting options (newest, price, popularity)
+
+5. Localization:
+   - Ghana Cedi (GHS) as primary currency
+   - Support for local phone number formats
+   - Ghanaian regions and cities for shipping
+</instruction>
+
+<format>
+Provide a complete solution including:
+1. Database schema design
+2. API endpoints documentation
+3. Frontend component structure
+4. Authentication flow
+5. Key implementation considerations
+</format>`;
     const messages: Message[] = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: raw }
