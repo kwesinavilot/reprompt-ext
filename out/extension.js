@@ -36,10 +36,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 const vscode = __importStar(require("vscode"));
 const sonar_1 = require("./sonar");
+const path = __importStar(require("path"));
 const outputChannel = vscode.window.createOutputChannel('Reprompt');
 function activate(context) {
     outputChannel.appendLine('Reprompt extension activated');
-    context.subscriptions.push(vscode.commands.registerCommand('reprompt.optimize', transformPrompt), vscode.commands.registerCommand('reprompt.runSonar', () => runWithSonar(context)), outputChannel, vscode.commands.registerCommand('reprompt.test', () => {
+    context.subscriptions.push(vscode.commands.registerCommand('reprompt.optimize', () => transformPrompt(context)), vscode.commands.registerCommand('reprompt.runSonar', () => runWithSonar(context)), outputChannel, vscode.commands.registerCommand('reprompt.test', () => {
         outputChannel.show();
         outputChannel.appendLine('Test command executed successfully');
         vscode.window.showInformationMessage('Reprompt test command works!');
@@ -80,7 +81,7 @@ function getRandomTheme() {
     const randomIndex = Math.floor(Math.random() * progressThemes.length);
     return progressThemes[randomIndex];
 }
-async function transformPrompt() {
+async function transformPrompt(context) {
     outputChannel.appendLine('Transform prompt command triggered');
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -159,6 +160,7 @@ async function transformPrompt() {
                         }
                         // Create a webview panel to show transformation stats
                         const panel = vscode.window.createWebviewPanel('transformStats', 'Prompt Transformation Stats', vscode.ViewColumn.Beside, { enableScripts: true });
+                        panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'images', 'icon.png'));
                         panel.webview.html = `
                 <!DOCTYPE html>
                 <html lang="en">
@@ -259,7 +261,7 @@ async function transformPrompt() {
                     catch (err) {
                         outputChannel.appendLine(`Error showing stats: ${err}`);
                     }
-                }, 100); // Small delay to ensure UI operations complete first
+                }, 100); // Small delay to ensure UI operations complete first        
             }
             // Show a simple notification regardless of stats setting
             const expansionPercent = Math.round(((transformed.length / raw.length) - 1) * 100);
@@ -316,6 +318,7 @@ async function runWithSonar(context) {
             // Creating webview
             progress.report({ message: theme.applying });
             const panel = vscode.window.createWebviewPanel('sonarResponse', 'Sonar Response', vscode.ViewColumn.Beside, { enableScripts: true });
+            panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'images', 'icon.png'));
             // Setting up message handling
             panel.webview.onDidReceiveMessage(message => {
                 switch (message.command) {
@@ -770,7 +773,7 @@ function renderSonarWebview(result) {
     // Process content to handle markdown-like formatting
     let processedContent = content;
     // Convert markdown code blocks to HTML - FIXED REGEX TO PROPERLY CATCH CODE BLOCKS
-    processedContent = processedContent.replace(/```([a-zA-Z0-9_]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    processedContent = processedContent.replace(/([a-zA-Z0-9_]*)\n([\s\S]*?)/g, (match, lang, code) => {
         const codeId = `code-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         return `<div class="code-block">
         <div class="code-header">
@@ -808,6 +811,8 @@ function renderSonarWebview(result) {
       <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
         <path fill="currentColor" d="M13.5 2.5a.5.5 0 0 0-.5.5v1.6A6.5 6.5 0 1 0 12.84 12a.75.75 0 1 0-1.08-1.04A5 5 0 1 1 11 4.6V6a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-2z"/>
       </svg>
+
+      Regenerate
     </button>
     <button class="action-button sources-btn" onclick="toggleSources()">
       <span class="sources-count">${sourcesText}</span>
@@ -881,7 +886,7 @@ function renderSonarWebview(result) {
           gap: 0.5em;
         }
         .action-button {
-          background: transparent;
+          background: var(--vscode-button-background, #252526);
           border: 1px solid var(--vscode-button-border, #444);
           border-radius: 4px;
           color: var(--vscode-button-foreground, #9cdcfe);
@@ -894,12 +899,20 @@ function renderSonarWebview(result) {
         .action-button:hover {
           background: var(--vscode-button-hoverBackground, #2a2a2a);
         }
-        .refresh-btn {
-          padding: 4px 6px;
-        }
-        .sources-btn {
+        .refresh-btn, .sources-btn {
           display: flex;
           align-items: center;
+          background: var(--vscode-editorWidget-background, #252526);
+          border: 1px solid var(--vscode-button-border, #444);
+          border-radius: 4px;
+          color: var(--vscode-foreground, black);
+          padding: 4px 8px;
+          cursor: pointer;
+          font-size: 12px;
+        }
+        .refresh-btn:hover, .sources-btn:hover {
+          background: var(--vscode-editor-hoverHighlightBackground, #2a2a2a);
+          border-color: var(--vscode-focusBorder, #666);
         }
         .sources-count {
           display: flex;

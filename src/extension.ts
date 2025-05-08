@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { optimizeWithSonar, runWithSonarApi } from './sonar';
+import * as path from 'path';
 
 interface CodeBlockMatch {
   _: string;
@@ -18,7 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Reprompt extension activated');
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('reprompt.optimize', transformPrompt),
+    vscode.commands.registerCommand('reprompt.optimize', () => transformPrompt(context)),
     vscode.commands.registerCommand('reprompt.runSonar', () => runWithSonar(context)),
     outputChannel,
     vscode.commands.registerCommand('reprompt.test', () => {
@@ -66,7 +67,7 @@ function getRandomTheme() {
   return progressThemes[randomIndex];
 }
 
-async function transformPrompt() {
+async function transformPrompt(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Transform prompt command triggered');
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
@@ -82,14 +83,14 @@ async function transformPrompt() {
 
   // Check if stats should be shown
   const showStats = vscode.workspace.getConfiguration().get<boolean>('reprompt.showTransformationStats');
-  
+
   // Start timing the process
   const startTime = Date.now();
-  
+
   // Get original prompt stats if needed
   let originalLength = 0;
   let originalWords = 0;
-  
+
   if (showStats) {
     originalLength = raw.length;
     originalWords = raw.split(/\s+/).filter(word => word.length > 0).length;
@@ -110,26 +111,26 @@ async function transformPrompt() {
         // Initial progress
         progress.report({ message: theme.preparing });
         await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
-        
+
         // Sending request
         progress.report({ message: theme.sending });
         const transformed = await optimizeWithSonar(raw, apiKey);
-        
+
         // Processing response
         progress.report({ message: theme.processing });
         await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
-        
+
         // Applying changes
         progress.report({ message: theme.applying });
         await editor.edit(editBuilder => editBuilder.replace(selection, transformed));
-        
+
         // Highlighting
         progress.report({ message: theme.highlighting });
         highlightXmlTags(editor, selection.start, transformed);
-        
+
         // Done
         progress.report({ message: theme.completed });
-        
+
         // Calculate stats after all document operations are complete
         if (showStats) {
           // Calculate stats in a non-blocking way
@@ -138,7 +139,7 @@ async function transformPrompt() {
               const transformedLength = transformed.length;
               const transformedWords = transformed.split(/\s+/).filter(word => word.length > 0).length;
               const expansionRatio = parseFloat((transformedLength / originalLength).toFixed(2));
-              
+
               // Calculate elapsed time
               const elapsedTime = Date.now() - startTime;
               let formattedTime = '';
@@ -151,7 +152,7 @@ async function transformPrompt() {
                 const seconds = ((elapsedTime % 60000) / 1000).toFixed(1);
                 formattedTime = `${minutes}m ${seconds}s`;
               }
-              
+
               // Create a webview panel to show transformation stats
               const panel = vscode.window.createWebviewPanel(
                 'transformStats',
@@ -159,7 +160,9 @@ async function transformPrompt() {
                 vscode.ViewColumn.Beside,
                 { enableScripts: true }
               );
-              
+
+              panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'images', 'icon.png'));
+
               panel.webview.html = `
                 <!DOCTYPE html>
                 <html lang="en">
@@ -259,9 +262,9 @@ async function transformPrompt() {
             } catch (err) {
               outputChannel.appendLine(`Error showing stats: ${err}`);
             }
-          }, 100); // Small delay to ensure UI operations complete first
+          }, 100); // Small delay to ensure UI operations complete first        
         }
-        
+
         // Show a simple notification regardless of stats setting
         const expansionPercent = Math.round(((transformed.length / raw.length) - 1) * 100);
         vscode.window.showInformationMessage(`Prompt transformed successfully! Expanded by ${expansionPercent}%.`);
@@ -276,9 +279,9 @@ async function transformPrompt() {
 async function runWithSonar(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Run with Sonar command triggered');
   const editor = vscode.window.activeTextEditor;
-  if (!editor) { 
+  if (!editor) {
     outputChannel.appendLine('No active editor found');
-    return; 
+    return;
   }
   const selection = editor.selection;
   const prompt = editor.document.getText(selection) || editor.document.getText();
@@ -305,20 +308,20 @@ async function runWithSonar(context: vscode.ExtensionContext) {
         // Initial progress
         progress.report({ message: theme.preparing });
         await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
-        
+
         // Sending request
         progress.report({ message: theme.sending });
         const result = await runWithSonarApi(prompt, apiKey);
-        
+
         // Calculate elapsed time
         const elapsedTime = Date.now() - startTime;
         // Add elapsed time to the result object
         result.elapsedTime = elapsedTime;
-        
+
         // Processing response
         progress.report({ message: theme.processing });
         await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
-        
+
         // Creating webview
         progress.report({ message: theme.applying });
         const panel = vscode.window.createWebviewPanel(
@@ -327,7 +330,9 @@ async function runWithSonar(context: vscode.ExtensionContext) {
           vscode.ViewColumn.Beside,
           { enableScripts: true }
         );
-        
+
+        panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'images', 'icon.png'));
+
         // Setting up message handling
         panel.webview.onDidReceiveMessage(
           message => {
@@ -336,7 +341,7 @@ async function runWithSonar(context: vscode.ExtensionContext) {
                 outputChannel.appendLine(`Regenerate request received for message: ${message.messageId}`);
                 // Start timing for regeneration
                 const regenStartTime = Date.now();
-                
+
                 // Handle regeneration with progress notification
                 vscode.window.withProgress(
                   {
@@ -352,7 +357,7 @@ async function runWithSonar(context: vscode.ExtensionContext) {
                       const regenElapsedTime = Date.now() - regenStartTime;
                       // Add elapsed time to the result object
                       newResult.elapsedTime = regenElapsedTime;
-                      
+
                       regProgress.report({ message: 'Updating view...' });
                       panel.webview.html = renderSonarWebview(newResult);
                       regProgress.report({ message: 'Regeneration complete!' });
@@ -368,11 +373,11 @@ async function runWithSonar(context: vscode.ExtensionContext) {
           undefined,
           context.subscriptions
         );
-        
+
         // Rendering response
         progress.report({ message: theme.highlighting });
         panel.webview.html = renderSonarWebview(result);
-        
+
         // Done
         progress.report({ message: theme.completed });
       }
@@ -440,10 +445,10 @@ function renderSonarWebview1(result: any): string {
   const sourcesCount = citations.length;
   const sourcesText = sourcesCount ? `${sourcesCount} Sources` : 'No Sources';
   const messageId = 'msg-' + Date.now();
-  
+
   // Get elapsed time from result object
   const elapsedTime = result?.elapsedTime || 0;
-  
+
   // Format elapsed time
   let formattedTime = '';
   if (elapsedTime < 1000) {
@@ -802,10 +807,10 @@ function renderSonarWebview(result: any): string {
   const sourcesCount = citations.length;
   const sourcesText = sourcesCount ? `${sourcesCount} Sources` : 'No Sources';
   const messageId = 'msg-' + Date.now();
-  
+
   // Get elapsed time from result object
   const elapsedTime = result?.elapsedTime || 0;
-  
+
   // Format elapsed time
   let formattedTime = '';
   if (elapsedTime < 1000) {
@@ -823,7 +828,7 @@ function renderSonarWebview(result: any): string {
 
   // Convert markdown code blocks to HTML - FIXED REGEX TO PROPERLY CATCH CODE BLOCKS
   processedContent = processedContent.replace(
-    /```([a-zA-Z0-9_]*)\n([\s\S]*?)```/g,
+    /([a-zA-Z0-9_]*)\n([\s\S]*?)/g,
     (match: string, lang: string, code: string) => {
       const codeId = `code-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       return `<div class="code-block">
@@ -835,7 +840,7 @@ function renderSonarWebview(result: any): string {
         </div>
         <pre id="${codeId}"><code>${escapeHtml(code.trim())}</code></pre>
       </div>`;
-    }  );
+    });
 
   // Convert inline code
   processedContent = processedContent.replace(/`([^`]+)`/g, '<code>$1</code>');
@@ -869,6 +874,8 @@ function renderSonarWebview(result: any): string {
       <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
         <path fill="currentColor" d="M13.5 2.5a.5.5 0 0 0-.5.5v1.6A6.5 6.5 0 1 0 12.84 12a.75.75 0 1 0-1.08-1.04A5 5 0 1 1 11 4.6V6a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-2z"/>
       </svg>
+
+      Regenerate
     </button>
     <button class="action-button sources-btn" onclick="toggleSources()">
       <span class="sources-count">${sourcesText}</span>
@@ -947,7 +954,7 @@ function renderSonarWebview(result: any): string {
           gap: 0.5em;
         }
         .action-button {
-          background: transparent;
+          background: var(--vscode-button-background, #252526);
           border: 1px solid var(--vscode-button-border, #444);
           border-radius: 4px;
           color: var(--vscode-button-foreground, #9cdcfe);
@@ -960,12 +967,20 @@ function renderSonarWebview(result: any): string {
         .action-button:hover {
           background: var(--vscode-button-hoverBackground, #2a2a2a);
         }
-        .refresh-btn {
-          padding: 4px 6px;
-        }
-        .sources-btn {
+        .refresh-btn, .sources-btn {
           display: flex;
           align-items: center;
+          background: var(--vscode-editorWidget-background, #252526);
+          border: 1px solid var(--vscode-button-border, #444);
+          border-radius: 4px;
+          color: var(--vscode-foreground, black);
+          padding: 4px 8px;
+          cursor: pointer;
+          font-size: 12px;
+        }
+        .refresh-btn:hover, .sources-btn:hover {
+          background: var(--vscode-editor-hoverHighlightBackground, #2a2a2a);
+          border-color: var(--vscode-focusBorder, #666);
         }
         .sources-count {
           display: flex;

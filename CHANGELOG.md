@@ -6,7 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 # Changelog
 
-## [0.5.0] - 2024-05-10
+## [0.5.1] - 2024-05-8
+
+### Added
+- Added the License and logo files
+- Added logo to webview panels for consistent branding
+- Updated package description for better marketplace visibility
+
+### Improved
+- Enhanced button hover styling to better adapt to user's VS Code theme
+- Improved webview UI elements to respect VS Code's color variables
+
+## [0.5.0] - 2024-05-8
 
 ### Added
 - Themed progress notifications: Fun, randomly selected progress messages (magical, tech, or cooking themes) for transforming and running prompts.

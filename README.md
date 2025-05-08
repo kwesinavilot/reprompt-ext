@@ -116,6 +116,12 @@ A: Enable the `reprompt.showTransformationStats` setting in your VS Code prefere
 - **Transformation taking too long?** Check your internet connection and Sonar API status.
 - **Need more information?** Open the Output panel and select "Reprompt" from the dropdown to see detailed logs.
 
-## License
+## Support
 
-MIT
+If you have any questions, suggestions, or feedback, please [open an issue](https://github.com/kwesinavilot/reprompt-ext/issues/new).
+
+## Contributing
+Contributions are welcome! Please read the [Contributing Guidelines](https://github.com/kwesinavilot/reprompt-ext/blob/main/CONTRIBUTING.md) for details on how to contribute.
+
+## License
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/kwesinavilot/reprompt-ext/blob/main/LICENSE) file for details.
