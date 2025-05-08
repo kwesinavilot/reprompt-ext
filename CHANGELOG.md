@@ -9,18 +9,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.5.0] - 2024-05-10
 
 ### Added
-- Themed progress messages with random selection for variety
-- Enhanced system prompt for better prompt transformations
-- Optional transformation statistics view (configurable in settings)
+- Themed progress notifications: Fun, randomly selected progress messages (magical, tech, or cooking themes) for transforming and running prompts.
+- Transformation statistics: Optional detailed stats panel after transforming a prompt, including length, word count, expansion ratio, and processing time (`reprompt.showTransformationStats` setting).
+- Enhanced system prompt: Transforms now produce even more comprehensive, structured prompts with business, technical, and contextual details.
+- Output channel logging: All actions and errors are logged for easier troubleshooting.
+- Command renaming: "Optimize Prompt" is now "Transform Prompt" everywhere for clarity.
 
 ### Improved
-- More responsive UI during API operations with progress updates
-- Renamed "optimize" to "transform" for clarity of purpose
-- Asynchronous stats calculation to prevent UI blocking
-- Updated README with new features
+- UI responsiveness: Progress notifications update step-by-step for a smoother experience.
+- Error handling: More robust error messages and logging.
+- Webview rendering: More robust and theme-aware, adapts to VS Code color themes.
 
 ### Fixed
-- Performance issues when displaying transformation statistics
+- Non-blocking UI for stats calculation.
+- Improved code block rendering and markdown formatting in webview.
+- Various bug fixes for edge cases and user experience.
 
 ## [0.4.0] - 2025-05-07
 
