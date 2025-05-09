@@ -2,7 +2,7 @@
     "name": "reprompt",
     "displayName": "Reprompt (2)",
     "description": "Optimize and enhance prompts using the Perplexity Sonar API.",
-    "version": "0.5.1",
+    "version": "0.6.0",
     "publisher": "kwesinavilot",
     "author": {
         "name": "Kwesinavilot",
@@ -106,6 +106,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Show detailed statistics after prompt transformation"
+                },
+                "reprompt.inferProjectStack": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Infer project stack from workspace config files and include in prompt transformation"
                 }
             }
         }

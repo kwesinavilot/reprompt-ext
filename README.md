@@ -1,14 +1,17 @@
 # Reprompt 2.0
 
-A VS Code extension to transform, run, and structure prompts using Perplexity Sonar API.
+Transform simple ideas into powerful, structured prompts with context-aware AI assistance. Reprompt 2.0 is a VS Code extension that enhances your prompt engineering workflow by automatically detecting your project's technology stack and incorporating it into comprehensive, well-structured prompts using Perplexity's Sonar API.
+
+Whether you're crafting prompts for code generation, documentation, or technical problem-solving, Reprompt 2.0 helps you create prompts that yield more accurate, relevant, and useful AI responses—all within your familiar VS Code environment.
 
 ## Features
 
 - **Prompt Transformation:** Turn simple ideas into comprehensive, structured prompts with a single command.
+- **Project Context Awareness:** Automatically detects your project's technology stack and incorporates it into transformed prompts.
 - **Prompt Execution:** Run prompts with Sonar and view responses in a formatted webview.
 - **Rich Markdown Rendering:** Sonar responses are displayed with headings, lists, code blocks (with copy button), and clickable links for a beautiful, readable experience.
 - **Structured Outputs:** Get responses as JSON or in custom formats (advanced).
-- **Inline Decorations:** Highlights XML tags (`<context>`, `<instruction>`, `<examples>`, `<format>`) after transformation.
+- **Inline Decorations:** Highlights XML tags (`<context>`, `<instruction>`, `<examples>`, `<constraints>`, `<format>`) after transformation.
 - **Progress Themes:** Enjoy fun, themed progress notifications while waiting for responses.
 - **Performance Stats:** Track response times and see detailed transformation statistics (optional).
 - **Easy Access:** Use via Command Palette, context menu, or keyboard shortcuts.
@@ -16,12 +19,22 @@ A VS Code extension to transform, run, and structure prompts using Perplexity So
 
 ## Installation
 
-1. Open VS Code.
-2. Go to Extensions (`Ctrl+Shift+X`).
-3. Search for `kwesinavilot.reprompt` and install, or run:
-   ```
-   ext install kwesinavilot.reprompt
-   ```
+### Option 1: Install from VS Code Extensions Panel
+1. Open VS Code
+2. Click on the Extensions icon in the Activity Bar (or press `Ctrl+Shift+X`)
+3. Search for `kwesinavilot.reprompt`
+4. Click the Install button
+
+### Option 2: Install from VS Code Marketplace Website
+1. Visit [Reprompt 2.0 on the VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=kwesinavilot.reprompt)
+2. Click the "Install" button
+3. When prompted, allow VS Code to launch and complete the installation
+
+### Option 3: Install via Command Line
+Open a terminal and run:
+```bash
+code --install-extension kwesinavilot.reprompt
+```
 
 ## Configuration
 
@@ -42,6 +55,7 @@ Transform a simple idea into a comprehensive, structured prompt:
 3. Select your text.
 4. Press `Ctrl+Shift+O` or right-click and choose **Reprompt: Transform Prompt**.
 5. Watch as your simple idea is transformed into a detailed, structured prompt with XML tags.
+6. The extension automatically detects your project's technology stack and incorporates it into the transformed prompt.
 
 ### Run a Prompt
 
@@ -79,6 +93,7 @@ The transformation process adds structure using XML-style tags:
 - `<context>`: Background information and constraints
 - `<instruction>`: The main task or request
 - `<examples>`: Sample inputs/outputs (if applicable)
+- `<constraints>`: Performance, security, or style boundaries
 - `<format>`: How the response should be structured
 
 #### Example Workflow
@@ -109,6 +124,9 @@ A: The extension randomly selects from themed message sets to make waiting more 
 
 **Q: How can I see detailed statistics about my transformations?**  
 A: Enable the `reprompt.showTransformationStats` setting in your VS Code preferences.
+
+**Q: How does the project stack detection work?**  
+A: The extension analyzes your workspace files (like package.json, requirements.txt, etc.) to identify technologies and frameworks, then incorporates this context into prompt transformations.
 
 ## Troubleshooting
 

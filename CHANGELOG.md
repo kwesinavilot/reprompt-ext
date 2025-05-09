@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 # Changelog
 
+## [0.6.0] - 2024-05-10
+
+### Added
+- Project stack detection: Automatically identifies the technology stack of the current project (Node.js, Python, PHP, Ruby, Java, .NET, Go, Rust) and includes this context in prompt transformations
+- Enhanced system prompt: Completely redesigned prompt engineering system that creates highly instructive, structured prompts with XML tags (<context>, <instruction>, <examples>, <constraints>, <format>)
+- Random themed progress notifications: Fun, contextual progress messages in magical, tech, or cooking themes
+
+### Improved
+- Transformation statistics: Added detailed stats panel showing length, word count, expansion ratio, and processing time
+- Better error handling and logging through dedicated output channel
+- More responsive UI with step-by-step progress notifications
+- Code organization with clearer separation of concerns
+- Webview UI: Enhanced theme-aware styling that better adapts to VS Code's color scheme
+
+### Fixed
+- Code block rendering in webview responses
+- HTML escaping in rendered content
+- Proper handling of regeneration requests from webviews
+
 ## [0.5.1] - 2024-05-8
 
 ### Added
