@@ -41,6 +41,8 @@ const fs = __importStar(require("fs"));
 const util = __importStar(require("util"));
 const readFileAsync = util.promisify(fs.readFile);
 const outputChannel = vscode.window.createOutputChannel('Reprompt');
+// Store the message handlers for each panel
+const panelMessageHandlers = new Map();
 function activate(context) {
     outputChannel.appendLine('Reprompt extension activated');
     context.subscriptions.push(vscode.commands.registerCommand('reprompt.optimize', () => transformPrompt(context)), vscode.commands.registerCommand('reprompt.runSonar', () => runWithSonar(context)), outputChannel, vscode.commands.registerCommand('reprompt.test', () => {
@@ -409,7 +411,9 @@ async function runWithSonar(context) {
             await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
             // Sending request
             progress.report({ message: theme.sending });
+            outputChannel.appendLine('Sending request to Sonar API...');
             const result = await (0, sonar_1.runWithSonarApi)(prompt, apiKey);
+            outputChannel.appendLine('Received response from Sonar API.');
             // Calculate elapsed time
             const elapsedTime = Date.now() - startTime;
             // Add elapsed time to the result object
@@ -419,44 +423,18 @@ async function runWithSonar(context) {
             await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
             // Creating webview
             progress.report({ message: theme.applying });
-            const panel = vscode.window.createWebviewPanel('sonarResponse', 'Sonar Response', vscode.ViewColumn.Beside, { enableScripts: true });
+            outputChannel.appendLine('Creating webview panel...');
+            const panel = vscode.window.createWebviewPanel('sonarResponse', 'Sonar Response', vscode.ViewColumn.Beside, {
+                enableScripts: true,
+                retainContextWhenHidden: true
+            });
             panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'images', 'icon.png'));
-            // Setting up message handling
-            panel.webview.onDidReceiveMessage(message => {
-                switch (message.command) {
-                    case 'regenerate':
-                        outputChannel.appendLine(`Regenerate request received for message: ${message.messageId}`);
-                        // Start timing for regeneration
-                        const regenStartTime = Date.now();
-                        // Handle regeneration with progress notification
-                        vscode.window.withProgress({
-                            location: vscode.ProgressLocation.Notification,
-                            title: 'Regenerating response...',
-                            cancellable: false
-                        }, async (regProgress) => {
-                            regProgress.report({ message: 'Sending request to Sonar API...' });
-                            try {
-                                const newResult = await (0, sonar_1.runWithSonarApi)(prompt, apiKey);
-                                // Calculate elapsed time for regeneration
-                                const regenElapsedTime = Date.now() - regenStartTime;
-                                // Add elapsed time to the result object
-                                newResult.elapsedTime = regenElapsedTime;
-                                regProgress.report({ message: 'Updating view...' });
-                                panel.webview.html = renderSonarWebview(newResult);
-                                regProgress.report({ message: 'Regeneration complete!' });
-                            }
-                            catch (err) {
-                                vscode.window.showErrorMessage('Regeneration failed: ' + err.message);
-                                outputChannel.appendLine(`Regeneration error: ${err.message}`);
-                            }
-                        });
-                        return;
-                }
-            }, undefined, context.subscriptions);
-            // Rendering response
-            progress.report({ message: theme.highlighting });
-            panel.webview.html = renderSonarWebview(result);
+            // Set initial HTML and attach message handler
+            setupSonarWebview(panel, prompt, apiKey, context, result, theme);
+            // Debug: Log when webview is created
+            outputChannel.appendLine('Webview panel created and HTML set.');
             // Done
+            progress.report({ message: theme.highlighting });
             progress.report({ message: theme.completed });
         });
     }
@@ -464,6 +442,73 @@ async function runWithSonar(context) {
         outputChannel.appendLine(`Run with Sonar error: ${err.message}`);
         vscode.window.showErrorMessage('Sonar run failed: ' + err.message);
     }
+}
+// Refactored function to setup the webview and message handling
+function setupSonarWebview(panel, prompt, apiKey, context, result, theme) {
+    // Clean up any existing handler for this panel
+    if (panelMessageHandlers.has(panel)) {
+        panelMessageHandlers.delete(panel);
+    }
+    // Create a new message handler for this panel
+    const messageHandler = async (message) => {
+        outputChannel.appendLine(`[Webview] Received message: ${JSON.stringify(message)}`);
+        if (message.command === 'regenerate') {
+            outputChannel.appendLine(`[Webview] Regenerate command received for messageId: ${message.messageId}`);
+            // Show progress notification for regeneration
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Regenerating response...',
+                cancellable: false
+            }, async (regProgress) => {
+                // Use themed progress messages if available
+                if (theme)
+                    regProgress.report({ message: theme.preparing || 'Preparing...' });
+                await new Promise(resolve => setTimeout(resolve, 200));
+                if (theme)
+                    regProgress.report({ message: theme.sending || 'Sending...' });
+                await new Promise(resolve => setTimeout(resolve, 200));
+                try {
+                    outputChannel.appendLine('[Regenerate] Sending request to Sonar API...');
+                    const regenStartTime = Date.now();
+                    const newResult = await (0, sonar_1.runWithSonarApi)(prompt, apiKey);
+                    const regenElapsedTime = Date.now() - regenStartTime;
+                    newResult.elapsedTime = regenElapsedTime;
+                    outputChannel.appendLine('[Regenerate] Received response from Sonar API.');
+                    if (theme)
+                        regProgress.report({ message: theme.processing || 'Processing...' });
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    regProgress.report({ message: 'Updating view...' });
+                    // Update the webview with new content
+                    panel.webview.html = renderSonarWebview(newResult);
+                    outputChannel.appendLine('[Regenerate] Webview updated with new content.');
+                    if (theme)
+                        regProgress.report({ message: theme.completed || 'Done!' });
+                    // Show success message
+                    vscode.window.showInformationMessage('Response regenerated successfully!');
+                    outputChannel.appendLine('[Regenerate] Regeneration completed successfully.');
+                }
+                catch (err) {
+                    vscode.window.showErrorMessage('Regeneration failed: ' + err.message);
+                    outputChannel.appendLine(`[Regenerate] Error: ${err.message}`);
+                }
+            });
+        }
+    };
+    // Set the HTML content for the webview
+    if (result) {
+        outputChannel.appendLine('[Webview] Setting HTML for panel');
+        panel.webview.html = renderSonarWebview(result);
+    }
+    // Store the message handler reference
+    panelMessageHandlers.set(panel, messageHandler);
+    // Register the message handler
+    outputChannel.appendLine('[Webview] Registering onDidReceiveMessage handler');
+    panel.webview.onDidReceiveMessage(messageHandler, null, context.subscriptions);
+    // Clean up when the panel is disposed
+    panel.onDidDispose(() => {
+        outputChannel.appendLine('[Webview] Panel disposed, cleaning up message handler');
+        panelMessageHandlers.delete(panel);
+    }, null, context.subscriptions);
 }
 function highlightXmlTags(editor, start, text) {
     const tagRegex = /<(context|instruction|examples|format)>.*?<\/\1>/gs;
@@ -484,35 +529,11 @@ function highlightXmlTags(editor, start, text) {
     editor.setDecorations(decorationType, decorations);
     setTimeout(() => decorationType.dispose(), 3000);
 }
-function renderJsonWebview(json) {
-    const pretty = JSON.stringify(json, null, 2);
-    return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <title>Sonar Response</title>
-      <style>
-        body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; }
-        pre { background: #23272e; padding: 1em; border-radius: 6px; }
-        .key { color: #9cdcfe; }
-        .string { color: #ce9178; }
-        .number { color: #b5cea8; }
-        .boolean { color: #569cd6; }
-        .null { color: #b5cea8; }
-      </style>
-    </head>
-    <body>
-      <pre>${syntaxHighlight(pretty)}</pre>
-    </body>
-    </html>
-  `;
-}
 function escapeHtml(text) {
     return text
-        .replace(/&/g, '&')
-        .replace(/</g, '<')
-        .replace(/>/g, '>');
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
 function syntaxHighlight(json) {
     return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
@@ -529,6 +550,324 @@ function syntaxHighlight(json) {
         return `<span class="${cls}">${match}</span>`;
     });
 }
+// function renderSonarWebview(result: any): string {
+//   // Extract the main message content
+//   const content = result?.choices?.[0]?.message?.content || '(No response)';
+//   const model = result?.model || '';
+//   const usage = result?.usage || {};
+//   const citations = Array.isArray(result?.citations) ? result.citations : [];
+//   const sourcesCount = citations.length;
+//   const sourcesText = sourcesCount ? `${sourcesCount} Sources` : 'No Sources';
+//   const messageId = 'msg-' + Date.now();
+//   // Get elapsed time from result object
+//   const elapsedTime = result?.elapsedTime || 0;
+//   // Format elapsed time
+//   let formattedTime = '';
+//   if (elapsedTime < 1000) {
+//     formattedTime = `${elapsedTime}ms`;
+//   } else if (elapsedTime < 60000) {
+//     formattedTime = `${(elapsedTime / 1000).toFixed(2)}s`;
+//   } else {
+//     const minutes = Math.floor(elapsedTime / 60000);
+//     const seconds = ((elapsedTime % 60000) / 1000).toFixed(1);
+//     formattedTime = `${minutes}m ${seconds}s`;
+//   }
+//   // Process content to handle markdown-like formatting
+//   let processedContent = content;
+//   // Only match triple-backtick code blocks (fixes accidental matches)
+//   processedContent = processedContent.replace(
+//     /```([a-zA-Z0-9_]*)\n([\s\S]*?)```/g,
+//     (match: string, lang: string, code: string) => {
+//       const codeId = `code-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+//       return `<div class="code-block">
+//         <div class="code-header">
+//           <span class="lang-label">${lang || ''}</span>
+//           <div class="code-actions">
+//             <button class="copy-btn" onclick="copyCode('${codeId}')">Copy</button>
+//           </div>
+//         </div>
+//         <pre id="${codeId}"><code>${escapeHtml(code.trim())}</code></pre>
+//       </div>`;
+//     });
+//   // Convert inline code
+//   processedContent = processedContent.replace(/`([^`]+)`/g, '<code>$1</code>');
+//   // Convert headers
+//   processedContent = processedContent.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+//   processedContent = processedContent.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+//   processedContent = processedContent.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+//   // Convert bullet points
+//   processedContent = processedContent.replace(/^- (.*$)/gm, '<li>$1</li>');
+//   processedContent = processedContent.replace(/(<li>.*<\/li>\n?)+/g, (match: string) => `<ul>${match}</ul>`);
+//   // Convert numbered lists
+//   processedContent = processedContent.replace(/^\d+\. (.*$)/gm, '<li>$1</li>');
+//   processedContent = processedContent.replace(/(<li>.*<\/li>\n?)+/g, (match: string) => `<ol>${match}</ol>`);
+//   // Convert paragraphs (lines separated by two newlines)
+//   processedContent = processedContent.replace(/\n\n([^<].*?)\n\n/g, '<p>$1</p>\n\n');
+//   // Make links clickable
+//   processedContent = processedContent.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+//   // Explanation block
+//   const explanationBlock = `<div class="explanation-block">
+//     ${processedContent}
+//   </div>`;
+//   // Action buttons
+//   const actionButtons = `<div class="action-buttons">
+//     <button class="action-button refresh-btn" onclick="regenerateResponse('${messageId}')">
+//       <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+//         <path fill="currentColor" d="M13.5 2.5a.5.5 0 0 0-.5.5v1.6A6.5 6.5 0 1 0 12.84 12a.75.75 0 1 0-1.08-1.04A5 5 0 1 1 11 4.6V6a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-2z"/>
+//       </svg>
+//       Regenerate
+//     </button>
+//     <button class="action-button sources-btn" onclick="toggleSources()">
+//       <span class="sources-count">${sourcesText}</span>
+//     </button>
+//   </div>`;
+//   // Sources section
+//   const sourcesSection = citations.length ? `<div class="sources-panel" id="sources-panel" style="display: none;">
+//     <h3>Sources</h3>
+//     <ul class="sources-list">
+//       ${citations.map((source: string) =>
+//     `<li><a href="${source}" target="_blank">${source}</a></li>`
+//   ).join('')}
+//     </ul>
+//   </div>` : '';
+//   // Stats for the footer
+//   const statsFooter = [
+//     model ? `<span class="stat-item"><b>Model:</b> ${model}</span>` : '',
+//     usage.prompt_tokens !== undefined ? `<span class="stat-item"><b>Prompt:</b> ${usage.prompt_tokens} tokens</span>` : '',
+//     usage.completion_tokens !== undefined ? `<span class="stat-item"><b>Completion:</b> ${usage.completion_tokens} tokens</span>` : '',
+//     usage.total_tokens !== undefined ? `<span class="stat-item"><b>Total:</b> ${usage.total_tokens} tokens</span>` : '',
+//     `<span class="stat-item"><b>Time:</b> ${formattedTime}</span>` // Add the elapsed time
+//   ].filter(Boolean).join('');
+//   // Use VS Code theme colors via CSS variables
+//   // See: https://code.visualstudio.com/api/extension-guides/webview#theming-webview-content
+//   return `
+//     <!DOCTYPE html>
+//     <html lang="en">
+//     <head>
+//       <meta charset="UTF-8">
+//       <title>Sonar Response</title>
+//       <meta name="color-scheme" content="dark light">
+//       <style>
+//         body {
+//           font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif);
+//           background: var(--vscode-editor-background, #1e1e1e);
+//           color: var(--vscode-editor-foreground, #d4d4d4);
+//           margin: 0;
+//           line-height: 1.5;
+//           font-size: 14px;
+//         }
+//         .content {
+//           padding: 1.8em 0.6em 5em 0.6em;
+//           overflow-wrap: break-word;
+//         }
+//         .explanation-block {
+//           background: transparent;
+//           border-radius: 8px;
+//           padding: 1.5em;
+//           margin-bottom: 1em;
+//           line-height: 1.6;
+//         }
+//         .stats {
+//           background: var(--vscode-editorWidget-background, #252526);
+//           color: var(--vscode-editorWidget-foreground, #d4d4d4);
+//           padding: 0.7em 2em;
+//           border-top: 1px solid var(--vscode-editorWidget-border, #3e3e3e);
+//           font-size: 0.9em;
+//           position: fixed;
+//           bottom: 0;
+//           left: 0;
+//           right: 0;
+//           display: flex;
+//           justify-content: space-between;
+//           align-items: center;
+//         }
+//         .stat-item {
+//           margin-right: 1.5em;
+//         }
+//         .action-buttons {
+//           display: flex;
+//           margin-top: 0.5em;
+//           gap: 0.5em;
+//         }
+//         .action-button {
+//           background: var(--vscode-button-background, #252526);
+//           border: 1px solid var(--vscode-button-border, #444);
+//           border-radius: 4px;
+//           color: var(--vscode-button-foreground, #9cdcfe);
+//           padding: 4px 8px;
+//           cursor: pointer;
+//           display: flex;
+//           align-items: center;
+//           font-size: 12px;
+//         }
+//         .action-button:hover {
+//           background: var(--vscode-button-hoverBackground, #2a2a2a);
+//         }
+//         .refresh-btn, .sources-btn {
+//           display: flex;
+//           align-items: center;
+//           background: var(--vscode-editorWidget-background, #252526);
+//           border: 1px solid var(--vscode-button-border, #444);
+//           border-radius: 4px;
+//           color: var(--vscode-foreground, black);
+//           padding: 4px 8px;
+//           cursor: pointer;
+//           font-size: 12px;
+//         }
+//         .refresh-btn:hover, .sources-btn:hover {
+//           background: var(--vscode-editor-hoverHighlightBackground, #2a2a2a);
+//           border-color: var(--vscode-focusBorder, #666);
+//         }
+//         .sources-count {
+//           display: flex;
+//           align-items: center;
+//           gap: 4px;
+//         }
+//         .sources-panel {
+//           background: var(--vscode-editorWidget-background, #252526);
+//           border: 1px solid var(--vscode-editorWidget-border, #444);
+//           border-radius: 8px;
+//           padding: 1em;
+//           margin-top: 1em;
+//         }
+//         .sources-list {
+//           margin: 0;
+//           padding-left: 1.5em;
+//         }
+//         .sources-list li {
+//           margin-bottom: 0.5em;
+//         }
+//         a {
+//           color: var(--vscode-textLink-foreground, #9cdcfe);
+//           text-decoration: none;
+//         }
+//         a:hover {
+//           text-decoration: underline;
+//         }
+//         h1, h2, h3, h4 {
+//           margin-top: 1em;
+//           margin-bottom: 0.5em;
+//           color: var(--vscode-editor-foreground, #e6e6e6);
+//         }
+//         h1 { font-size: 1.8em; }
+//         h2 { font-size: 1.5em; }
+//         h3 { font-size: 1.3em; }
+//         pre {
+//           background: var(--vscode-editor-background, #1e1e2e);
+//           padding: 1em;
+//           border-radius: 0 0 6px 6px;
+//           overflow-x: auto;
+//           margin: 0;
+//           color: var(--vscode-editor-foreground, #e9e9f4);
+//         }
+//         code {
+//           font-family: 'SF Mono', Monaco, Menlo, Consolas, 'Courier New', monospace;
+//           font-size: 0.9em;
+//           background: var(--vscode-editor-selectionBackground, #2d2d2d);
+//           padding: 0.2em 0.4em;
+//           border-radius: 3px;
+//         }
+//         pre code {
+//           background: transparent;
+//           padding: 0;
+//           white-space: pre;
+//         }
+//         ul, ol {
+//           padding-left: 2em;
+//           margin: 0.5em 0;
+//         }
+//         li {
+//           margin: 0.3em 0;
+//         }
+//         p {
+//           margin: 0.7em 0;
+//         }
+//         .code-block {
+//           margin: 1em 0;
+//           border-radius: 6px;
+//           overflow: hidden;
+//           border: 1px solid var(--vscode-editorWidget-border, #333);
+//         }
+//         .code-header {
+//           background: var(--vscode-editorWidget-border, #333);
+//           padding: 0.5em 1em;
+//           display: flex;
+//           justify-content: space-between;
+//           align-items: center;
+//           border-bottom: 1px solid var(--vscode-editorWidget-border, #444);
+//         }
+//         .lang-label {
+//           font-family: monospace;
+//           color: var(--vscode-editor-foreground, #ccc);
+//           font-size: 0.9em;
+//         }
+//         .code-actions {
+//           display: flex;
+//           gap: 0.5em;
+//         }
+//         .copy-btn {
+//           background: transparent;
+//           border: 1px solid var(--vscode-button-border, #555);
+//           border-radius: 4px;
+//           color: var(--vscode-editor-foreground, #ccc);
+//           padding: 2px 8px;
+//           font-size: 12px;
+//           cursor: pointer;
+//         }
+//         .copy-btn:hover {
+//           background: var(--vscode-button-hoverBackground, #444);
+//         }
+//       </style>
+//       <script>
+//         function copyCode(elementId) {
+//           const codeElement = document.getElementById(elementId);
+//           const text = codeElement.textContent;
+//           navigator.clipboard.writeText(text)
+//             .then(() => {
+//               const btn = codeElement.parentElement.querySelector('.copy-btn');
+//               const originalText = btn.textContent;
+//               btn.textContent = 'Copied!';
+//               setTimeout(() => {
+//                 btn.textContent = originalText;
+//               }, 2000);
+//             })
+//             .catch(err => {
+//               console.error('Failed to copy: ', err);
+//             });
+//         }
+//         function toggleSources() {
+//           const sourcesPanel = document.getElementById('sources-panel');
+//           if (sourcesPanel) {
+//             sourcesPanel.style.display = sourcesPanel.style.display === 'none' ? 'block' : 'none';
+//           }
+//         }
+//         function regenerateResponse(messageId) {
+//           // Send message to extension host through vscode API
+//           const vscode = acquireVsCodeApi();
+//           vscode.postMessage({
+//             command: 'regenerate',
+//             messageId: messageId
+//           });
+//         }
+//         // Initialize vscode API
+//         const vscode = acquireVsCodeApi();
+//       </script>
+//     </head>
+//     <body>
+//       <div class="content" id="${messageId}">
+//         ${explanationBlock}
+//         ${actionButtons}
+//         ${sourcesSection}
+//       </div>
+//       <div class="stats">
+//         <div class="stats-items">
+//           ${statsFooter}
+//         </div>
+//       </div>
+//     </body>
+//     </html>
+//   `;
+// }
 function renderSonarWebview(result) {
     // Extract the main message content
     const content = result?.choices?.[0]?.message?.content || '(No response)';
@@ -555,7 +894,7 @@ function renderSonarWebview(result) {
     }
     // Process content to handle markdown-like formatting
     let processedContent = content;
-    // Convert markdown code blocks to HTML - FIXED REGEX TO PROPERLY CATCH CODE BLOCKS
+    // Convert markdown code blocks to HTML
     processedContent = processedContent.replace(/```([a-zA-Z0-9_]*)\n([\s\S]*?)```/g, (match, lang, code) => {
         const codeId = `code-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         return `<div class="code-block">
@@ -594,7 +933,6 @@ function renderSonarWebview(result) {
       <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
         <path fill="currentColor" d="M13.5 2.5a.5.5 0 0 0-.5.5v1.6A6.5 6.5 0 1 0 12.84 12a.75.75 0 1 0-1.08-1.04A5 5 0 1 1 11 4.6V6a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-2z"/>
       </svg>
-
       Regenerate
     </button>
     <button class="action-button sources-btn" onclick="toggleSources()">
@@ -616,238 +954,259 @@ function renderSonarWebview(result) {
         usage.total_tokens !== undefined ? `<span class="stat-item"><b>Total:</b> ${usage.total_tokens} tokens</span>` : '',
         `<span class="stat-item"><b>Time:</b> ${formattedTime}</span>` // Add the elapsed time
     ].filter(Boolean).join('');
-    // Use VS Code theme colors via CSS variables
-    // See: https://code.visualstudio.com/api/extension-guides/webview#theming-webview-content
-    return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <title>Sonar Response</title>
-      <meta name="color-scheme" content="dark light">
-      <style>
-        body {
-          font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif);
-          background: var(--vscode-editor-background, #1e1e1e);
-          color: var(--vscode-editor-foreground, #d4d4d4);
-          margin: 0;
-          line-height: 1.5;
-          font-size: 14px;
-        }
-        .content {
-          padding: 1.8em 0.6em 5em 0.6em;
-          overflow-wrap: break-word;
-        }
-        .explanation-block {
-          background: transparent;
-          border-radius: 8px;
-          padding: 1.5em;
-          margin-bottom: 1em;
-          line-height: 1.6;
-        }
-        .stats {
-          background: var(--vscode-editorWidget-background, #252526);
-          color: var(--vscode-editorWidget-foreground, #d4d4d4);
-          padding: 0.7em 2em;
-          border-top: 1px solid var(--vscode-editorWidget-border, #3e3e3e);
-          font-size: 0.9em;
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .stat-item {
-          margin-right: 1.5em;
-        }
-        .action-buttons {
-          display: flex;
-          margin-top: 0.5em;
-          gap: 0.5em;
-        }
-        .action-button {
-          background: var(--vscode-button-background, #252526);
-          border: 1px solid var(--vscode-button-border, #444);
-          border-radius: 4px;
-          color: var(--vscode-button-foreground, #9cdcfe);
-          padding: 4px 8px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          font-size: 12px;
-        }
-        .action-button:hover {
-          background: var(--vscode-button-hoverBackground, #2a2a2a);
-        }
-        .refresh-btn, .sources-btn {
-          display: flex;
-          align-items: center;
-          background: var(--vscode-editorWidget-background, #252526);
-          border: 1px solid var(--vscode-button-border, #444);
-          border-radius: 4px;
-          color: var(--vscode-foreground, black);
-          padding: 4px 8px;
-          cursor: pointer;
-          font-size: 12px;
-        }
-        .refresh-btn:hover, .sources-btn:hover {
-          background: var(--vscode-editor-hoverHighlightBackground, #2a2a2a);
-          border-color: var(--vscode-focusBorder, #666);
-        }
-        .sources-count {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-        .sources-panel {
-          background: var(--vscode-editorWidget-background, #252526);
-          border: 1px solid var(--vscode-editorWidget-border, #444);
-          border-radius: 8px;
-          padding: 1em;
-          margin-top: 1em;
-        }
-        .sources-list {
-          margin: 0;
-          padding-left: 1.5em;
-        }
-        .sources-list li {
-          margin-bottom: 0.5em;
-        }
-        a {
-          color: var(--vscode-textLink-foreground, #9cdcfe);
-          text-decoration: none;
-        }
-        a:hover {
-          text-decoration: underline;
-        }
-        h1, h2, h3, h4 {
-          margin-top: 1em;
-          margin-bottom: 0.5em;
-          color: var(--vscode-editor-foreground, #e6e6e6);
-        }
-        h1 { font-size: 1.8em; }
-        h2 { font-size: 1.5em; }
-        h3 { font-size: 1.3em; }
-        pre {
-          background: var(--vscode-editor-background, #1e1e2e);
-          padding: 1em;
-          border-radius: 0 0 6px 6px;
-          overflow-x: auto;
-          margin: 0;
-          color: var(--vscode-editor-foreground, #e9e9f4);
-        }
-        code {
-          font-family: 'SF Mono', Monaco, Menlo, Consolas, 'Courier New', monospace;
-          font-size: 0.9em;
-          background: var(--vscode-editor-selectionBackground, #2d2d2d);
-          padding: 0.2em 0.4em;
-          border-radius: 3px;
-        }
-        pre code {
-          background: transparent;
-          padding: 0;
-          white-space: pre;
-        }
-        ul, ol {
-          padding-left: 2em;
-          margin: 0.5em 0;
-        }
-        li {
-          margin: 0.3em 0;
-        }
-        p {
-          margin: 0.7em 0;
-        }
-        .code-block {
-          margin: 1em 0;
-          border-radius: 6px;
-          overflow: hidden;
-          border: 1px solid var(--vscode-editorWidget-border, #333);
-        }
-        .code-header {
-          background: var(--vscode-editorWidget-border, #333);
-          padding: 0.5em 1em;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          border-bottom: 1px solid var(--vscode-editorWidget-border, #444);
-        }
-        .lang-label {
-          font-family: monospace;
-          color: var(--vscode-editor-foreground, #ccc);
-          font-size: 0.9em;
-        }
-        .code-actions {
-          display: flex;
-          gap: 0.5em;
-        }
-        .copy-btn {
-          background: transparent;
-          border: 1px solid var(--vscode-button-border, #555);
-          border-radius: 4px;
-          color: var(--vscode-editor-foreground, #ccc);
-          padding: 2px 8px;
-          font-size: 12px;
-          cursor: pointer;
-        }
-        .copy-btn:hover {
-          background: var(--vscode-button-hoverBackground, #444);
-        }
-      </style>
-      <script>
-        function copyCode(elementId) {
-          const codeElement = document.getElementById(elementId);
-          const text = codeElement.textContent;
-          navigator.clipboard.writeText(text)
-            .then(() => {
-              const btn = codeElement.parentElement.querySelector('.copy-btn');
-              const originalText = btn.textContent;
-              btn.textContent = 'Copied!';
-              setTimeout(() => {
-                btn.textContent = originalText;
-              }, 2000);
-            })
-            .catch(err => {
-              console.error('Failed to copy: ', err);
-            });
-        }
-        
-        function toggleSources() {
-          const sourcesPanel = document.getElementById('sources-panel');
-          if (sourcesPanel) {
-            sourcesPanel.style.display = sourcesPanel.style.display === 'none' ? 'block' : 'none';
-          }
-        }
-        
-        function regenerateResponse(messageId) {
-          // Send message to extension host through vscode API
-          const vscode = acquireVsCodeApi();
-          vscode.postMessage({
-            command: 'regenerate',
-            messageId: messageId
-          });
-        }
-        
-        // Initialize vscode API
-        const vscode = acquireVsCodeApi();
-      </script>
-    </head>
-    <body>
-      <div class="content" id="${messageId}">
-        ${explanationBlock}
-        ${actionButtons}
-        ${sourcesSection}
-      </div>
+    // Complete HTML for the webview
+    return `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sonar Response</title>
+    <style>
+      body {
+        font-family: var(--vscode-font-family);
+        color: var(--vscode-editor-foreground);
+        background-color: var(--vscode-editor-background);
+        padding: 15px;
+        line-height: 1.5;
+        margin: 0;
+        font-size: 14px;
+      }
+      h1, h2, h3 {
+        color: var(--vscode-editorWidget-foreground);
+        margin-top: 24px;
+        margin-bottom: 16px;
+        font-weight: 600;
+        line-height: 1.25;
+      }
+      h1 { font-size: 2em; }
+      h2 { font-size: 1.5em; }
+      h3 { font-size: 1.25em; }
+      p {
+        margin-top: 0;
+        margin-bottom: 16px;
+      }
+      code {
+        font-family: var(--vscode-editor-font-family);
+        background-color: transparent;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-size: 85%;
+      }
+      .code-block {
+        background-color: var(--vscode-editor-inactiveSelectionBackground);
+        border: 1px solid var(--vscode-editorWidget-border);
+        border-radius: 6px;
+        margin: 16px 0;
+        overflow: hidden;
+      }
+      .code-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background-color: var(--vscode-editorWidget-background);
+        border-bottom: 1px solid var(--vscode-editorWidget-border);
+      }
+      .lang-label {
+        font-family: var(--vscode-font-family);
+        font-size: 12px;
+        color: var(--vscode-descriptionForeground);
+      }
+      .code-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .code-block pre {
+        margin: 0;
+        padding: 12px;
+        overflow: auto;
+        font-family: var(--vscode-editor-font-family);
+        font-size: 13px;
+      }
+      .copy-btn {
+        padding: 2px 8px;
+        font-size: 12px;
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      .copy-btn:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+      ul, ol {
+        margin-top: 0;
+        margin-bottom: 16px;
+        padding-left: 2em;
+      }
+      li {
+        margin-bottom: 4px;
+      }
+      a {
+        color: var(--vscode-textLink-foreground);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .response-container {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .explanation-block {
+        background-color: var(--vscode-editor-background);
+        margin-bottom: 0;
+        padding: 0.6em 0.3em 0em 1.2em;
+        overflow-wrap: break-word;
+      }
+      .controls {
+        margin: 1em 0 6em;
+        padding: 0.5em 0.3em 0em 1.2em;
+        background-color: transparent;
+        border-top: 1.5px solid var(--vscode-editorWidget-border);
+      }
+      .action-buttons {
+        display: flex;
+        gap: 8px;
+        margin-top: 1em;
+        background-color: transparent;
+      }
+      .action-button {
+        background-color: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        border: none;
+        border-radius: 4px;
+        padding: 8px 12px;
+        font-size: 13px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: background-color 0.2s;
+      }
+      .refresh-btn {
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+      }
+      .refresh-btn:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+      .sources-btn:hover {
+        background-color: var(--vscode-button-secondaryHoverBackground);
+      }
+      .sources-panel {
+        background-color: var(--vscode-editorWidget-background);
+        border: 1px solid var(--vscode-editorWidget-border);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+      }
+      .sources-panel h3 {
+        margin-top: 0;
+        margin-bottom: 10px;
+      }
+      .sources-list {
+        max-height: 275px;
+        overflow-y: auto;
+      }
+      .sources-count {
+        font-size: 13px;
+      }
+      .stats {
+        background: var(--vscode-editorWidget-background, #252526);
+        color: var(--vscode-editorWidget-foreground, #d4d4d4);
+        padding: 0.7em 2em;
+        border-top: 1px solid var(--vscode-editorWidget-border, #3e3e3e);
+        font-size: 0.9em;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .stat-item {
+        margin-right: 1.5em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="response-container" id="${messageId}">
+      ${explanationBlock}
+    </div>
 
-      <div class="stats">
-        <div class="stats-items">
-          ${statsFooter}
-        </div>
+    <div class="controls">
+      ${actionButtons}
+      ${sourcesSection}
+    </div>
+
+    <div class="stats">
+      <div class="stats-items">
+        ${statsFooter}
       </div>
-    </body>
-    </html>
-  `;
+    </div>
+
+    <script>
+      // Function to copy code to clipboard
+      function copyCode(id) {
+        const codeElement = document.getElementById(id);
+        const codeText = codeElement.textContent;
+        
+        navigator.clipboard.writeText(codeText).then(() => {
+          const button = codeElement.parentElement.querySelector('.copy-btn');
+          const originalText = button.textContent;
+          button.textContent = 'Copied!';
+          setTimeout(() => {
+            button.textContent = originalText;
+          }, 2000);
+        }).catch(err => {
+          console.error('Failed to copy code: ', err);
+        });
+      }
+
+      // Function to toggle sources panel visibility
+      function toggleSources() {
+        const sourcesPanel = document.getElementById('sources-panel');
+        if (sourcesPanel) {
+          const isVisible = sourcesPanel.style.display !== 'none';
+          sourcesPanel.style.display = isVisible ? 'none' : 'block';
+        }
+      }
+
+      // Function to trigger regeneration via VS Code API
+      function regenerateResponse(messageId) {
+        // Notify VS Code extension that we want to regenerate
+        const vscode = acquireVsCodeApi();
+        vscode.postMessage({
+          command: 'regenerate',
+          messageId: messageId
+        });
+        
+        // Show loading state
+        const button = document.querySelector('.refresh-btn');
+        if (button) {
+          const originalText = button.innerHTML;
+          button.innerHTML = '<span>Regenerating...</span>';
+          button.disabled = true;
+          
+          // Reset button state after timeout (in case we don't get a response)
+          setTimeout(() => {
+            if (button.disabled) {
+              button.innerHTML = originalText;
+              button.disabled = false;
+            }
+          }, 30000); // 30 second timeout
+        }
+      }
+
+      // Initialize VS Code API
+      const vscode = acquireVsCodeApi();
+    </script>
+  </body>
+  </html>`;
 }
 //# sourceMappingURL=extension.js.map
