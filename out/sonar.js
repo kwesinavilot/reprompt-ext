@@ -212,11 +212,12 @@ async function optimizeWithSonar(raw, apiKey) {
     const service = new SonarApiService(apiKey);
     return service.optimizePrompt(raw);
 }
-async function runWithSonarApi(prompt, apiKey) {
+async function runWithSonarApi(prompt, apiKey, model, searchContextSize) {
     const service = new SonarApiService(apiKey);
     return service.chatCompletions({
+        model: model || 'sonar',
         messages: [{ role: 'user', content: prompt }],
-        web_search_options: { search_context_size: 'medium' }
+        web_search_options: { search_context_size: searchContextSize || 'medium' }
     });
 }
 /**

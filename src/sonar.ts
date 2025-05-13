@@ -265,11 +265,17 @@ export async function optimizeWithSonar(raw: string, apiKey: string): Promise<st
   return service.optimizePrompt(raw);
 }
 
-export async function runWithSonarApi(prompt: string, apiKey: string): Promise<SonarApiResponse> {
+export async function runWithSonarApi(
+  prompt: string,
+  apiKey: string,
+  model?: string,
+  searchContextSize?: 'low' | 'medium' | 'high'
+): Promise<SonarApiResponse> {
   const service = new SonarApiService(apiKey);
   return service.chatCompletions({
+    model: model || 'sonar',
     messages: [{ role: 'user', content: prompt }],
-    web_search_options: { search_context_size: 'medium' }
+    web_search_options: { search_context_size: searchContextSize || 'medium' }
   });
 }
 

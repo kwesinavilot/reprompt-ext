@@ -9,6 +9,8 @@ Whether you're crafting prompts for code generation, documentation, or technical
 - **Prompt Transformation:** Turn simple ideas into comprehensive, structured prompts with a single command.
 - **Project Context Awareness:** Automatically detects your project's technology stack and incorporates it into transformed prompts.
 - **Prompt Execution:** Run prompts with Sonar and view responses in a formatted webview.
+- **Sonar Model Selection:** Choose from multiple Sonar models (`sonar`, `sonar-pro`, `sonar-deep-research`, `sonar-reasoning`, `sonar-reasoning-pro`, `r1-1776`) to match your use case.
+- **Search Context Size Control:** Select how much web context is retrieved (`low`, `medium`, `high`) to balance cost and answer depth.
 - **Rich Markdown Rendering:** Sonar responses are displayed with headings, lists, code blocks (with copy button), and clickable links for a beautiful, readable experience.
 - **Structured Outputs:** Get responses as JSON or in custom formats (advanced).
 - **Inline Decorations:** Highlights XML tags (`<context>`, `<instruction>`, `<examples>`, `<constraints>`, `<format>`) after transformation.
@@ -18,6 +20,7 @@ Whether you're crafting prompts for code generation, documentation, or technical
 - **No Local AI:** All processing is done via Perplexity Sonar API.
 - **Timeout Protection:** Added fallback for Sonar API calls to prevent hangs.
 - **Improved Theme Matching:** Webviews better match your selected VS Code theme.
+- **Expanded File Support:** Works with `.md`, `.prompt.md`, `.reprompt`, `.reprompt.md`, `.cursor.md`, and `copilot-instructions.md` files.
 
 ## Installation
 
@@ -44,6 +47,8 @@ code --install-extension kwesinavilot.reprompt
 2. Type `Preferences: Open Settings (UI)` and press Enter.
 3. Search for `reprompt` to see all available settings:
    - `reprompt.sonarApiKey`: Your Perplexity Sonar API key (required)
+   - `reprompt.sonarModel`: Choose the Sonar model to use for prompt execution and transformation
+   - `reprompt.sonarSearchContextSize`: Control how much search context is retrieved from the web (`low`, `medium`, `high`)
    - `reprompt.showTransformationStats`: Enable/disable detailed transformation statistics (default: false)
    - `reprompt.inferProjectStack`: Enable/disable automatic project stack detection (default: true)
 
@@ -78,6 +83,16 @@ If you've enabled transformation statistics in settings:
    - Expansion ratio
    - Processing time
    - Summary of changes
+
+### Supported File Types
+
+Reprompt commands work with the following file types:
+- `.md`
+- `.prompt.md`
+- `.reprompt`
+- `.reprompt.md`
+- `.cursor.md`
+- `copilot-instructions.md`
 
 ### Developer Guide: Creating Effective Prompts
 
@@ -134,10 +149,19 @@ A: The extension analyzes your workspace files (like package.json, requirements.
 **Q: What happens if the Sonar API doesn't respond?**  
 A: The extension now includes timeout protection to prevent hanging if the API doesn't respond in a reasonable time.
 
+**Q: Can I choose which Sonar model to use?**  
+A: Yes! Use the `reprompt.sonarModel` setting to select from all available Sonar models.
+
+**Q: How do I control the amount of web context retrieved?**  
+A: Use the `reprompt.sonarSearchContextSize` setting (`low`, `medium`, `high`) to balance cost and answer depth.
+
+**Q: What file types are supported?**  
+A: Reprompt works with `.md`, `.prompt.md`, `.reprompt`, `.reprompt.md`, `.cursor.md`, and `copilot-instructions.md` files.
+
 ## Troubleshooting
 
 - **Command not working?** Make sure you've set your Sonar API key in settings.
-- **Transformation taking too long?** Check your internet connection and Sonar API status.
+- **Transformation taking too long?** Check your internet connection, Sonar API status, or try lowering the search context size.
 - **Need more information?** Open the Output panel and select "Reprompt" from the dropdown to see detailed logs.
 
 ## Support

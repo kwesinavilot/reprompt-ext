@@ -1,8 +1,8 @@
 {
     "name": "reprompt",
-    "displayName": "Reprompt (2)",
+    "displayName": "Reprompt",
     "description": "Optimize and enhance prompts using the Perplexity Sonar API.",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "publisher": "kwesinavilot",
     "author": {
         "name": "Kwesinavilot",
@@ -44,8 +44,7 @@
     "main": "./out/extension.js",
     "activationEvents": [
         "onCommand:reprompt.optimize",
-        "onCommand:reprompt.runSonar",
-        "onCommand:reprompt.test"
+        "onCommand:reprompt.runSonar"
     ],
     "contributes": {
         "commands": [
@@ -62,12 +61,12 @@
             "editor/context": [
                 {
                     "command": "reprompt.optimize",
-                    "when": "resourceExtname == .md || resourceExtname == .reprompt",
+                    "when": "resourceExtname == .md || resourceExtname == .reprompt || resourceExtname == .prompt || resourceExtname == .cursor",
                     "group": "navigation"
                 },
                 {
                     "command": "reprompt.runSonar",
-                    "when": "resourceExtname == .md || resourceExtname == .reprompt",
+                    "when": "resourceExtname == .md || resourceExtname == .reprompt || resourceExtname == .prompt || resourceExtname == .cursor",
                     "group": "navigation"
                 }
             ],
@@ -111,6 +110,38 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Infer project stack from workspace config files and include in prompt transformation"
+                },
+                "reprompt.sonarModel": {
+                    "type": "string",
+                    "default": "sonar",
+                    "enum": [
+                        "sonar-pro",
+                        "sonar",
+                        "sonar-deep-research",
+                        "sonar-reasoning-pro",
+                        "sonar-reasoning",
+                        "r1-1776"
+                    ],
+                    "enumDescriptions": [
+                        "Advanced search offering with grounding, ideal for complex queries and follow-ups.",
+                        "Lightweight, cost-effective search model with grounding, ideal for general search tasks.",
+                        "Expert-level research model conducting exhaustive searches and generating comprehensive reports, ideal for in-depth analysis.",
+                        "Premier reasoning offering powered by DeepSeek R1 with Chain of Thought (CoT), ideal for complex, multi-step tasks.",
+                        "Fast, real-time reasoning model designed for quick problem-solving with search, ideal for quick problem-solving.",
+                        "A version of DeepSeek R1 post-trained for uncensored, unbiased, and factual information, ideal for offline use."
+                    ],
+                    "description": "Choose the Sonar model to use for prompt execution and transformation."
+                },
+                "reprompt.sonarSearchContextSize": {
+                    "type": "string",
+                    "default": "medium",
+                    "enum": ["low", "medium", "high"],
+                    "enumDescriptions": [
+                        "Best for short factual queries or when operating under strict token cost constraints.",
+                        "The default and best suited for general use cases.",
+                        "Use for deep research, exploratory questions, or when citations and evidence coverage are critical."
+                    ],
+                    "description": "Controls how much search context is retrieved from the web. 'low' is cost-efficient, 'medium' is balanced, 'high' is most comprehensive but more expensive."
                 }
             }
         }

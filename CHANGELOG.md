@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 # Changelog
 
+## [0.8.0] - 2024-05-14
+
+### Added
+- **Sonar Model Selection:** Users can now choose from multiple Sonar models (`sonar`, `sonar-pro`, `sonar-deep-research`, `sonar-reasoning`, `sonar-reasoning-pro`, `r1-1776`) in settings for both transformation and execution.
+- **Search Context Size Setting:** Added `reprompt.sonarSearchContextSize` setting (`low`, `medium`, `high`) to control the amount of web context retrieved for each request, balancing cost and comprehensiveness.
+- **File Type Support:** Commands now support `.prompt.md`, `.reprompt`, `.reprompt.md`, `.cursor.md`, and `copilot-instructions.md` files.
+- **Improved Command Palette Integration:** All commands (`Transform Prompt`, `Run with Sonar`, `Test`) are available in the Command Palette.
+- **Better Error Handling:** More user-friendly and fun error messages for network issues and timeouts.
+- **Settings Documentation:** Settings for model and context size are now documented and available in the VS Code settings UI.
+
+### Changed
+- **API Calls:** All Sonar API calls now respect the selected model and search context size.
+- **Webview Regeneration:** Regeneration and progress notifications now use the selected model and context size.
+- **Settings:** Default model is `sonar`, default search context size is `medium`.
+
+### Fixed
+- Ensured all supported file types are recognized for context menu and command palette actions.
+- Improved robustness of error handling for network failures and timeouts.
+
 ## [0.7.0] - 2024-05-13
 
 ### Changed

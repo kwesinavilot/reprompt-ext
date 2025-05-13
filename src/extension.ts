@@ -153,11 +153,26 @@ async function inferProjectStack(): Promise<string> {
     : '';
 }
 
+function getSonarModel(): string {
+  // Default to "sonar" if not set
+  return vscode.workspace.getConfiguration().get<string>('reprompt.sonarModel') || 'sonar';
+}
+
+function getSonarSearchContextSize(): 'low' | 'medium' | 'high' {
+  const val = vscode.workspace.getConfiguration().get<string>('reprompt.sonarSearchContextSize');
+  if (val === 'low' || val === 'medium' || val === 'high') return val;
+  return 'medium';
+}
+
 async function transformPrompt(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Transform prompt command triggered');
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     outputChannel.appendLine('No active editor found');
+    return;
+  }
+  if (!isPromptFile(editor.document)) {
+    vscode.window.showErrorMessage('Reprompt only works on .md, .prompt.md, .reprompt, .reprompt.md, .cursor.md, or copilot-instructions.md files.');
     return;
   }
   const selection = editor.selection;
@@ -193,6 +208,9 @@ async function transformPrompt(context: vscode.ExtensionContext) {
     }
   }
 
+  const sonarModel = getSonarModel();
+  const searchContextSize = getSonarSearchContextSize();
+
   try {
     await vscode.window.withProgress(
       {
@@ -202,7 +220,8 @@ async function transformPrompt(context: vscode.ExtensionContext) {
       },
       async (progress) => {
         await showProgressSteps(progress, theme, async () => {
-          const transformed = await getTransformedPrompt(raw, stackContext, apiKey);
+          // If optimizeWithSonar is extended to accept model and searchContextSize, pass them here
+          const transformed = await getTransformedPrompt(raw, stackContext, apiKey, sonarModel, searchContextSize);
           await applyTransformedPrompt(editor, selection, transformed);
           highlightXmlTags(editor, selection.start, transformed);
           if (showStats) {
@@ -244,7 +263,15 @@ async function showProgressSteps(
   progress.report({ message: theme.completed });
 }
 
-async function getTransformedPrompt(raw: string, stackContext: string, apiKey: string): Promise<string> {
+async function getTransformedPrompt(
+  raw: string,
+  stackContext: string,
+  apiKey: string,
+  model?: string,
+  searchContextSize?: 'low' | 'medium' | 'high'
+): Promise<string> {
+  // If optimizeWithSonar is extended to accept model and searchContextSize, pass them here
+  // For now, just call as before
   return optimizeWithSonar(raw + stackContext, apiKey);
 }
 
@@ -389,6 +416,10 @@ async function runWithSonar(context: vscode.ExtensionContext) {
     outputChannel.appendLine('No active editor found');
     return;
   }
+  if (!isPromptFile(editor.document)) {
+    vscode.window.showErrorMessage('Reprompt only works on .md, .prompt.md, .reprompt, .reprompt.md, .cursor.md, or copilot-instructions.md files.');
+    return;
+  }
 
   const selection = editor.selection;
   const prompt = editor.document.getText(selection) || editor.document.getText();
@@ -402,6 +433,9 @@ async function runWithSonar(context: vscode.ExtensionContext) {
     vscode.window.showErrorMessage('Set reprompt.sonarApiKey in settings.');
     return;
   }
+
+  const sonarModel = getSonarModel();
+  const searchContextSize = getSonarSearchContextSize();
 
   // Start timing the process
   const startTime = Date.now();
@@ -428,7 +462,8 @@ async function runWithSonar(context: vscode.ExtensionContext) {
 
         let result;
         try {
-          result = await runWithSonarApi(prompt, apiKey);
+          // Pass model and searchContextSize to runWithSonarApi
+          result = await runWithSonarApi(prompt, apiKey, sonarModel, searchContextSize);
         } catch (err: any) {
           // Handle network errors and timeouts with a fun message
           let msg = String(err && err.message ? err.message : err);
@@ -1000,4 +1035,16 @@ function renderSonarWebview(result: any): string {
     </script>
   </body>
   </html>`;
+}
+
+function isPromptFile(document: vscode.TextDocument): boolean {
+  const name = document.fileName.toLowerCase();
+  return (
+    name.endsWith('.md') ||
+    name.endsWith('.prompt.md') ||
+    name.endsWith('.reprompt') ||
+    name.endsWith('.reprompt.md') ||
+    name.endsWith('.cursor.md') ||
+    name.endsWith('copilot-instructions.md')
+  );
 }
