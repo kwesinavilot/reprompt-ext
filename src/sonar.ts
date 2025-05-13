@@ -131,9 +131,9 @@ export class SonarApiService {
     } catch (err: any) {
       if (timeoutHandled) {
         // If in VS Code extension context, show a fun message
-        if (typeof vscode !== 'undefined' && vscode.window && vscode.window.showErrorMessage) {
-          vscode.window.showErrorMessage(funTimeoutMsg);
-        }
+        // if (typeof vscode !== 'undefined' && vscode.window && vscode.window.showErrorMessage) {
+        //   vscode.window.showErrorMessage(funTimeoutMsg);
+        // }
         throw new Error(funTimeoutMsg);
       }
       throw err;
@@ -298,3 +298,128 @@ export async function runWithSonarRegex(
   const service = new SonarApiService(apiKey);
   return service.runPromptWithRegex(prompt, regex, options);
 }
+
+// async function runWithSonar(context: vscode.ExtensionContext) {
+//   outputChannel.appendLine('Run with Sonar command triggered');
+//   const editor = vscode.window.activeTextEditor;
+//   if (!editor) {
+//     outputChannel.appendLine('No active editor found');
+//     return;
+//   }
+//   const selection = editor.selection;
+//   const prompt = editor.document.getText(selection) || editor.document.getText();
+//   if (!prompt) { vscode.window.showErrorMessage('No prompt found.'); return; }
+
+//   const apiKey = vscode.workspace.getConfiguration().get<string>('reprompt.sonarApiKey');
+//   if (!apiKey) { vscode.window.showErrorMessage('Set reprompt.sonarApiKey in settings.'); return; }
+
+//   // Start timing the process
+//   const startTime = Date.now();
+
+//   // Select a random theme for this operation
+//   const theme = getRandomTheme();
+//   outputChannel.appendLine(`Using theme with first message: ${theme.preparing}`);
+
+//   try {
+//     await vscode.window.withProgress(
+//       {
+//         location: vscode.ProgressLocation.Notification,
+//         title: 'Running prompt with Sonar...',
+//         cancellable: false
+//       },
+//       async (progress) => {
+//         // Initial progress
+//         progress.report({ message: theme.preparing });
+//         await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
+
+//         // Sending request
+//         progress.report({ message: theme.sending });
+//         const result = await runWithSonarApi(prompt, apiKey);
+
+//         // Calculate elapsed time
+//         const elapsedTime = Date.now() - startTime;
+//         // Add elapsed time to the result object
+//         result.elapsedTime = elapsedTime;
+
+//         // Processing response
+//         progress.report({ message: theme.processing });
+//         await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
+
+//         // Creating webview
+//         progress.report({ message: theme.applying });
+//         const panel = vscode.window.createWebviewPanel(
+//           'sonarResponse',
+//           'Sonar Response',
+//           vscode.ViewColumn.Beside,
+//           { enableScripts: true, retainContextWhenHidden: true }
+//         );
+
+//         panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'images', 'icon.png'));
+
+//         // Set up message handler FIRST, before setting HTML content
+//         panel.webview.onDidReceiveMessage(
+//           async (message) => {
+//             outputChannel.appendLine(`Message received: ${JSON.stringify(message)}`);
+
+//             if (message.command === 'regenerate') {
+//               outputChannel.appendLine(`Regenerate request received for message: ${message.messageId}`);
+
+//               await vscode.window.withProgress(
+//                 {
+//                   location: vscode.ProgressLocation.Notification,
+//                   title: 'Regenerating response...',
+//                   cancellable: false
+//                 },
+//                 async (regProgress) => {
+//                   regProgress.report({ message: theme.preparing });
+//                   await new Promise(resolve => setTimeout(resolve, 200));
+
+//                   regProgress.report({ message: theme.sending });
+//                   try {
+//                     const regenStartTime = Date.now();
+//                     const newResult = await runWithSonarApi(prompt, apiKey);
+//                     const regenElapsedTime = Date.now() - regenStartTime;
+//                     newResult.elapsedTime = regenElapsedTime;
+
+//                     regProgress.report({ message: theme.processing });
+//                     await new Promise(resolve => setTimeout(resolve, 200));
+
+//                     regProgress.report({ message: 'Updating view...' });
+//                     panel.webview.html = renderSonarWebview(newResult);
+
+//                     regProgress.report({ message: theme.completed });
+//                     vscode.window.showInformationMessage('Response regenerated successfully!');
+//                   } catch (err: any) {
+//                     vscode.window.showErrorMessage('Regeneration failed: ' + err.message);
+//                     outputChannel.appendLine(`Regeneration error: ${err.message}`);
+//                   }
+//                 }
+//               );
+//             }
+//           },
+//           undefined,
+//           context.subscriptions
+//         );
+
+//         // THEN set the HTML content
+//         panel.webview.html = renderSonarWebview(result);
+
+//         // Done
+//         progress.report({ message: theme.highlighting });
+//         progress.report({ message: theme.completed });
+//       }
+//     );
+//   } catch (err: any) {
+//     outputChannel.appendLine(`Run with Sonar error: ${err.message}`);
+//     vscode.window.showErrorMessage('Sonar run failed: ' + err.message);
+//   }
+// }
+
+// function regenerateResponse(messageId) {
+//   // Send message to extension host through vscode API
+//   const vscode = acquireVsCodeApi();
+//   vscode.postMessage({
+//     command: 'regenerate',
+//     messageId: messageId
+//   });
+// }

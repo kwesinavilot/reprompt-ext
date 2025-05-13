@@ -523,9 +523,12 @@ function setupSonarWebview(
 
   // Create a new message handler for this panel
   const messageHandler = async (message: any) => {
+    console.log('Webview message received:', message);
     outputChannel.appendLine(`[Webview] Received message: ${JSON.stringify(message)}`);
+    // outputChannel.show(true);
 
     if (message.command === 'regenerate') {
+      // vscode.window.showInformationMessage('Regenerating response...');
       outputChannel.appendLine(`[Webview] Regenerate command received for messageId: ${message.messageId}`);
 
       // Show progress notification for regeneration
@@ -940,6 +943,35 @@ function renderSonarWebview(result: any): string {
     </div>
 
     <script>
+      // initialize the VS Code API
+      const vscode = acquireVsCodeApi();
+
+      // Function to trigger regeneration via VS Code API
+      function regenerateResponse(messageId) {
+        // Notify VS Code extension that we want to regenerate
+        vscode.postMessage({
+          command: 'regenerate',
+          messageId: messageId
+        });
+        console.log('Posted message: regenerate', messageId);
+        
+        // Show loading state
+        // const button = document.querySelector('.refresh-btn');
+        // if (button) {
+        //   const originalText = button.innerHTML;
+        //   button.innerHTML = '<span>Regenerating...</span>';
+        //   button.disabled = true;
+          
+        //   // Reset button state after timeout (in case we don't get a response)
+        //   setTimeout(() => {
+        //     if (button.disabled) {
+        //       button.innerHTML = originalText;
+        //       button.disabled = false;
+        //     }
+        //   }, 30000); // 30 second timeout
+        // }
+      }
+
       // Function to copy code to clipboard
       function copyCode(id) {
         const codeElement = document.getElementById(id);
@@ -965,35 +997,6 @@ function renderSonarWebview(result: any): string {
           sourcesPanel.style.display = isVisible ? 'none' : 'block';
         }
       }
-
-      // Function to trigger regeneration via VS Code API
-      function regenerateResponse(messageId) {
-        // Notify VS Code extension that we want to regenerate
-        const vscode = acquireVsCodeApi();
-        vscode.postMessage({
-          command: 'regenerate',
-          messageId: messageId
-        });
-        
-        // Show loading state
-        const button = document.querySelector('.refresh-btn');
-        if (button) {
-          const originalText = button.innerHTML;
-          button.innerHTML = '<span>Regenerating...</span>';
-          button.disabled = true;
-          
-          // Reset button state after timeout (in case we don't get a response)
-          setTimeout(() => {
-            if (button.disabled) {
-              button.innerHTML = originalText;
-              button.disabled = false;
-            }
-          }, 30000); // 30 second timeout
-        }
-      }
-
-      // Initialize VS Code API
-      const vscode = acquireVsCodeApi();
     </script>
   </body>
   </html>`;

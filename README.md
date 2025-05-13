@@ -16,6 +16,8 @@ Whether you're crafting prompts for code generation, documentation, or technical
 - **Performance Stats:** Track response times and see detailed transformation statistics (optional).
 - **Easy Access:** Use via Command Palette, context menu, or keyboard shortcuts.
 - **No Local AI:** All processing is done via Perplexity Sonar API.
+- **Timeout Protection:** Added fallback for Sonar API calls to prevent hangs.
+- **Improved Theme Matching:** Webviews better match your selected VS Code theme.
 
 ## Installation
 
@@ -43,6 +45,7 @@ code --install-extension kwesinavilot.reprompt
 3. Search for `reprompt` to see all available settings:
    - `reprompt.sonarApiKey`: Your Perplexity Sonar API key (required)
    - `reprompt.showTransformationStats`: Enable/disable detailed transformation statistics (default: false)
+   - `reprompt.inferProjectStack`: Enable/disable automatic project stack detection (default: true)
 
 ## Usage
 
@@ -120,13 +123,16 @@ A: Visit [perplexity.ai](https://www.perplexity.ai/) and sign up for API access.
 A: The extension is optimized for `.md` and `.reprompt` files, but commands can be run from the Command Palette in any text editor.
 
 **Q: Why do I see different progress messages each time?**  
-A: The extension randomly selects from themed message sets to make waiting more enjoyable.
+A: The extension randomly selects from themed message sets (magical, tech, or cooking) to make waiting more enjoyable.
 
 **Q: How can I see detailed statistics about my transformations?**  
 A: Enable the `reprompt.showTransformationStats` setting in your VS Code preferences.
 
 **Q: How does the project stack detection work?**  
 A: The extension analyzes your workspace files (like package.json, requirements.txt, etc.) to identify technologies and frameworks, then incorporates this context into prompt transformations.
+
+**Q: What happens if the Sonar API doesn't respond?**  
+A: The extension now includes timeout protection to prevent hanging if the API doesn't respond in a reasonable time.
 
 ## Troubleshooting
 

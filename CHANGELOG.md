@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 # Changelog
 
+## [0.7.0] - 2024-05-13
+
+### Changed
+- Improved the 'Run With Sonar' regeneration process to ensure proper functionality
+- Updated the webviews to better match the user's selected VS Code theme.
+- Added a timeout fallback for Sonar API calls to prevent hangs
+- Improved error handling and user feedback for missing API key or selection.
+
 ## [0.6.0] - 2024-05-10
 
 ### Added

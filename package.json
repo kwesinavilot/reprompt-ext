@@ -2,7 +2,7 @@
     "name": "reprompt",
     "displayName": "Reprompt (2)",
     "description": "Optimize and enhance prompts using the Perplexity Sonar API.",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "publisher": "kwesinavilot",
     "author": {
         "name": "Kwesinavilot",
