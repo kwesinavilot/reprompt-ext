@@ -73,6 +73,24 @@ YOUR OUTPUT MUST BE THE PROPMT ITSELF, NOT AN EXPLANATION AND MUST BE A WELL-STR
 BE CONCISE YET COMPREHENSIVE - INCLUDE EVERYTHING NEEDED FOR QUALITY RESULTS.
 `;
 
+// Utility: Promise with timeout
+async function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      if (onTimeout) onTimeout();
+      reject(new Error('timeout'));
+    }, ms);
+  });
+  return Promise.race([
+    promise.then((result) => {
+      clearTimeout(timeoutId);
+      return result;
+    }),
+    timeoutPromise
+  ]);
+}
+
 export class SonarApiService {
   private apiKey: string;
   private baseUrl: string = 'https://api.perplexity.ai';
@@ -84,19 +102,42 @@ export class SonarApiService {
   private async fetchApi(path: string, body: any): Promise<any> {
     // Use require instead of dynamic import
     const fetch = require('node-fetch');
+    // Add a 60s timeout with a fun message
+    let timeoutHandled = false;
+    const timeoutMs = 60000;
+    const funTimeoutMsg =
+      "🦄 Oops! The AI is taking a magical nap (request timed out after 60 seconds). " +
+      "Check your network connection, try again, or give the unicorns a little break! 🦄";
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        'accept': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) throw new Error(await response.text());
-    return await response.json();
+    try {
+      return await withTimeout(
+        fetch(`${this.baseUrl}${path}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+            'accept': 'application/json'
+          },
+          body: JSON.stringify(body)
+        }).then(async (response: any) => {
+          if (!response.ok) throw new Error(await response.text());
+          return await response.json();
+        }),
+        timeoutMs,
+        () => {
+          timeoutHandled = true;
+        }
+      );
+    } catch (err: any) {
+      if (timeoutHandled) {
+        // If in VS Code extension context, show a fun message
+        if (typeof vscode !== 'undefined' && vscode.window && vscode.window.showErrorMessage) {
+          vscode.window.showErrorMessage(funTimeoutMsg);
+        }
+        throw new Error(funTimeoutMsg);
+      }
+      throw err;
+    }
   }
 
   /**
