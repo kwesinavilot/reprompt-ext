@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { optimizeWithSonar, runWithSonarApi } from './sonar';
+import { optimizeWithSonar, runWithSonarApi, generateExamplesWithSonar } from './sonar';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as util from 'util';
@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('reprompt.optimize', () => transformPrompt(context)),
     vscode.commands.registerCommand('reprompt.runSonar', () => runWithSonar(context)),
-    outputChannel,
+    vscode.commands.registerCommand('reprompt.generateExamples', () => generateExamples(context)),
     vscode.commands.registerCommand('reprompt.test', () => {
       outputChannel.show();
       outputChannel.appendLine('Test command executed successfully');
@@ -221,7 +221,7 @@ async function transformPrompt(context: vscode.ExtensionContext) {
       async (progress) => {
         await showProgressSteps(progress, theme, async () => {
           // If optimizeWithSonar is extended to accept model and searchContextSize, pass them here
-          const transformed = await getTransformedPrompt(raw, stackContext, apiKey, sonarModel, searchContextSize);
+          const transformed = await getTransformedPrompt(raw + stackContext, apiKey, sonarModel, searchContextSize);
           await applyTransformedPrompt(editor, selection, transformed);
           highlightXmlTags(editor, selection.start, transformed);
           if (showStats) {
@@ -1047,4 +1047,157 @@ function isPromptFile(document: vscode.TextDocument): boolean {
     name.endsWith('.cursor.md') ||
     name.endsWith('copilot-instructions.md')
   );
+}
+
+async function generateExamples(context: vscode.ExtensionContext) {
+  // Always show the output channel for debugging
+  outputChannel.show(true);
+  outputChannel.appendLine('Generate Examples command triggered');
+
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    outputChannel.appendLine('No active editor found');
+    vscode.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  if (!isPromptFile(editor.document)) {
+    outputChannel.appendLine('File is not a supported prompt file.');
+    vscode.window.showErrorMessage('Reprompt only works on .md, .prompt.md, .reprompt, .reprompt.md, .cursor.md, or copilot-instructions.md files.');
+    return;
+  }
+
+  const askEachTime = vscode.workspace.getConfiguration().get<boolean>('reprompt.examplesAskEachTime');
+  let numExamples = vscode.workspace.getConfiguration().get<number>('reprompt.examplesDefaultCount') || 3;
+
+  outputChannel.appendLine(`askEachTime: ${askEachTime}, numExamples: ${numExamples}`);
+
+  if (askEachTime) {
+    const input = await vscode.window.showInputBox({
+      prompt: 'How many examples do you want to generate?',
+      value: numExamples.toString(),
+      validateInput: (val) => {
+        const n = Number(val);
+        if (!Number.isInteger(n) || n < 1 || n > 10) return 'Enter a number between 1 and 10';
+        return null;
+      }
+    });
+    if (!input) {
+      outputChannel.appendLine('User cancelled example count input.');
+      return;
+    }
+    numExamples = Number(input);
+    outputChannel.appendLine(`User entered numExamples: ${numExamples}`);
+  }
+
+  // Try to extract <instruction> content if present, else use selection or whole document
+  let instruction = '';
+  if (!editor.selection.isEmpty) {
+    instruction = editor.document.getText(editor.selection).trim();
+    outputChannel.appendLine('Using selection as instruction.');
+  }
+  if (!instruction) {
+    // Try to extract from <instruction> tag in selection or document
+    const selectionText = editor.document.getText(editor.selection);
+    const docText = editor.document.getText();
+    let match = selectionText.match(/<instruction>([\s\S]*?)<\/instruction>/i);
+    if (!match) match = docText.match(/<instruction>([\s\S]*?)<\/instruction>/i);
+    if (match) {
+      instruction = match[1].trim();
+      outputChannel.appendLine('Extracted instruction from <instruction> tag.');
+    } else {
+      // fallback: use whole document
+      instruction = docText.trim();
+      outputChannel.appendLine('Using whole document as instruction.');
+    }
+  }
+  if (!instruction) {
+    vscode.window.showErrorMessage('No instruction found to generate examples for.');
+    outputChannel.appendLine('No instruction found to generate examples for.');
+    return;
+  }
+
+  const apiKey = vscode.workspace.getConfiguration().get<string>('reprompt.sonarApiKey');
+  if (!apiKey) {
+    vscode.window.showErrorMessage('Set reprompt.sonarApiKey in settings.');
+    outputChannel.appendLine('No API key set.');
+    return;
+  }
+  const sonarModel = getSonarModel();
+  const searchContextSize = getSonarSearchContextSize();
+
+  outputChannel.appendLine(`About to call Sonar: instruction="${instruction}", numExamples=${numExamples}, model=${sonarModel}, contextSize=${searchContextSize}`);
+
+  try {
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Generating examples with Sonar...',
+        cancellable: false
+      },
+      async (progress) => {
+        progress.report({ message: 'Contacting Sonar...' });
+        outputChannel.appendLine(`Requesting ${numExamples} examples for: ${instruction}`);
+        let content: string | undefined = undefined;
+        try {
+          content = await generateExamplesWithSonar(
+            instruction,
+            numExamples,
+            apiKey,
+            sonarModel,
+            searchContextSize
+          );
+        } catch (err: any) {
+          outputChannel.appendLine('Sonar API error: ' + (err?.message || err));
+          vscode.window.showErrorMessage('Failed to contact Sonar API: ' + (err?.message || err));
+          return;
+        }
+        outputChannel.appendLine('Sonar response: ' + (content || '[empty]'));
+        if (!content) {
+          vscode.window.showErrorMessage('No examples generated.');
+          outputChannel.appendLine('No examples generated.');
+          return;
+        }
+
+        // Format as <examples>...</examples>
+        let examplesBlock = content;
+        // If not already in <examples> tags, wrap it
+        if (!/^<examples>[\s\S]*<\/examples>$/i.test(content)) {
+          examplesBlock = `<examples>\n${content}\n</examples>`;
+        }
+
+        // Insert or replace <examples> in the document
+        await editor.edit(editBuilder => {
+          const doc = editor.document;
+          const text = doc.getText();
+          const examplesRegex = /<examples>[\s\S]*?<\/examples>/i;
+          if (examplesRegex.test(text)) {
+            // Replace existing <examples> block
+            const match = examplesRegex.exec(text)!;
+            const start = doc.positionAt(match.index);
+            const end = doc.positionAt(match.index + match[0].length);
+            editBuilder.replace(new vscode.Range(start, end), examplesBlock);
+            outputChannel.appendLine('Replaced existing <examples> block.');
+          } else {
+            // Insert after </instruction> if present, else at end
+            const instructionClose = text.match(/<\/instruction>/i);
+            if (instructionClose) {
+              const insertPos = doc.positionAt(instructionClose.index! + instructionClose[0].length);
+              editBuilder.insert(insertPos, '\n' + examplesBlock + '\n');
+              outputChannel.appendLine('Inserted <examples> block after </instruction>.');
+            } else {
+              // Insert at end
+              editBuilder.insert(doc.lineAt(doc.lineCount - 1).range.end, '\n' + examplesBlock + '\n');
+              outputChannel.appendLine('Inserted <examples> block at end of document.');
+            }
+          }
+        });
+
+        vscode.window.showInformationMessage(`Inserted ${numExamples} example(s) into <examples> block.`);
+        outputChannel.appendLine(`Inserted ${numExamples} example(s) into <examples> block.`);
+      }
+    );
+  } catch (err: any) {
+    outputChannel.appendLine(`Generate Examples error: ${err?.message || err}`);
+    vscode.window.showErrorMessage('Failed to generate examples: ' + (err?.message || err));
+  }
 }

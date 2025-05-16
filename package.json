@@ -2,7 +2,7 @@
     "name": "reprompt",
     "displayName": "Reprompt",
     "description": "Optimize and enhance prompts using the Perplexity Sonar API.",
-    "version": "0.8.0",
+    "version": "0.10.0",
     "publisher": "kwesinavilot",
     "author": {
         "name": "Kwesinavilot",
@@ -44,17 +44,25 @@
     "main": "./out/extension.js",
     "activationEvents": [
         "onCommand:reprompt.optimize",
-        "onCommand:reprompt.runSonar"
+        "onCommand:reprompt.runSonar",
+        "onCommand:reprompt.generateExamples"
     ],
     "contributes": {
         "commands": [
             {
                 "command": "reprompt.optimize",
-                "title": "Reprompt: Transform Prompt"
+                "title": "Reprompt: Transform Prompt",
+                "category": "Reprompt"
             },
             {
                 "command": "reprompt.runSonar",
-                "title": "Reprompt: Run with Sonar"
+                "title": "Reprompt: Run with Sonar",
+                "category": "Reprompt"
+            },
+            {
+                "command": "reprompt.generateExamples",
+                "title": "Reprompt: Generate Examples",
+                "category": "Reprompt"
             }
         ],
         "menus": {
@@ -62,22 +70,34 @@
                 {
                     "command": "reprompt.optimize",
                     "when": "resourceExtname == .md || resourceExtname == .reprompt || resourceExtname == .prompt || resourceExtname == .cursor",
-                    "group": "navigation"
+                    "group": "0_reprompt"
                 },
                 {
                     "command": "reprompt.runSonar",
                     "when": "resourceExtname == .md || resourceExtname == .reprompt || resourceExtname == .prompt || resourceExtname == .cursor",
-                    "group": "navigation"
+                    "group": "0_reprompt"
+                },
+                {
+                    "command": "reprompt.generateExamples",
+                    "when": "resourceExtname == .md || resourceExtname == .reprompt || resourceExtname == .prompt || resourceExtname == .cursor",
+                    "group": "0_reprompt"
                 }
             ],
             "commandPalette": [
                 {
                     "command": "reprompt.optimize",
-                    "when": "editorTextFocus"
+                    "when": "editorTextFocus",
+                    "group": "reprompt"
                 },
                 {
                     "command": "reprompt.runSonar",
-                    "when": "editorTextFocus"
+                    "when": "editorTextFocus",
+                    "group": "reprompt"
+                },
+                {
+                    "command": "reprompt.generateExamples",
+                    "when": "editorTextFocus",
+                    "group": "reprompt"
                 }
             ]
         },
@@ -91,6 +111,11 @@
                 "command": "reprompt.runSonar",
                 "key": "ctrl+shift+r",
                 "when": "editorTextFocus"
+            },
+            {
+                "command": "reprompt.generateExamples",
+                "key": "ctrl+shift+e",
+                "when": "editorTextFocus"
             }
         ],
         "configuration": {
@@ -99,17 +124,9 @@
             "properties": {
                 "reprompt.sonarApiKey": {
                     "type": "string",
-                    "description": "Perplexity Sonar API key."
-                },
-                "reprompt.showTransformationStats": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Show detailed statistics after prompt transformation"
-                },
-                "reprompt.inferProjectStack": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Infer project stack from workspace config files and include in prompt transformation"
+                    "description": "Perplexity Sonar API key.",
+                    "secret": true,
+                    "order": 1
                 },
                 "reprompt.sonarModel": {
                     "type": "string",
@@ -130,7 +147,8 @@
                         "Fast, real-time reasoning model designed for quick problem-solving with search, ideal for quick problem-solving.",
                         "A version of DeepSeek R1 post-trained for uncensored, unbiased, and factual information, ideal for offline use."
                     ],
-                    "description": "Choose the Sonar model to use for prompt execution and transformation."
+                    "description": "Choose the Sonar model to use for prompt execution and transformation.",
+                    "order": 2
                 },
                 "reprompt.sonarSearchContextSize": {
                     "type": "string",
@@ -141,7 +159,34 @@
                         "The default and best suited for general use cases.",
                         "Use for deep research, exploratory questions, or when citations and evidence coverage are critical."
                     ],
-                    "description": "Controls how much search context is retrieved from the web. 'low' is cost-efficient, 'medium' is balanced, 'high' is most comprehensive but more expensive."
+                    "description": "Controls how much search context is retrieved from the web. 'low' is cost-efficient, 'medium' is balanced, 'high' is most comprehensive but more expensive.",
+                    "order": 3
+                },
+                "reprompt.showTransformationStats": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show detailed statistics after prompt transformation",
+                    "order": 4
+                },
+                "reprompt.inferProjectStack": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Infer project stack from workspace config files and include in prompt transformation",
+                    "order": 5
+                },
+                "reprompt.askEachTimeForNumberOfExamples": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Ask for the number of examples each time you use 'Reprompt: Generate Examples'.",
+                    "order": 6
+                },
+                "reprompt.defaultNumberOfExamplesToGenerate": {
+                    "type": "number",
+                    "default": 3,
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "The default number of examples to generate when using 'Reprompt: Generate Examples'.",
+                    "order": 7
                 }
             }
         }

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 # Changelog
 
+## [0.10.0] - 2024-06-XX
+
+### Added
+- **Context Menu Separator:** Added a horizontal rule after Reprompt commands in the editor context menu for better visual separation.
+- **Improved File Type Support:** The context menu commands now appear for all supported file types, including `.prompt.md`, `.reprompt.md`, `.cursor.md`, and `copilot-instructions.md`.
+- **Robust Logging:** The extension now always shows the Output panel and logs detailed information when running the "Generate Examples" command, making debugging easier.
+
+### Changed
+- **Examples Prompt Quality:** The prompt sent to Sonar for generating examples is now more instructive, resulting in higher-quality, more diverse examples.
+- **Menu Separator Implementation:** Replaced the deprecated `"-"` command with the correct `"separator": true` property in the context menu configuration.
+
+### Fixed
+- **Context Menu Command Activation:** Fixed an issue where "Reprompt: Generate Examples" and other commands would not appear or work from the context menu for certain file types.
+- **VS Code Warning:** Resolved the warning about an undefined `-` command in the menu configuration.
+
 ## [0.8.0] - 2024-05-14
 
 ### Added

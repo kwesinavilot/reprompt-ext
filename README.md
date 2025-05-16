@@ -9,6 +9,8 @@ Whether you're crafting prompts for code generation, documentation, or technical
 - **Prompt Transformation:** Turn simple ideas into comprehensive, structured prompts with a single command.
 - **Project Context Awareness:** Automatically detects your project's technology stack and incorporates it into transformed prompts.
 - **Prompt Execution:** Run prompts with Sonar and view responses in a formatted webview.
+- **Generate Examples:** Generate examples for your prompts to improve accuracy.
+- **Prompt Statistics:** View transformation statistics for original vs. transformed length, expansion ratio, processing time, and summary of changes.
 - **Sonar Model Selection:** Choose from multiple Sonar models (`sonar`, `sonar-pro`, `sonar-deep-research`, `sonar-reasoning`, `sonar-reasoning-pro`, `r1-1776`) to match your use case.
 - **Search Context Size Control:** Select how much web context is retrieved (`low`, `medium`, `high`) to balance cost and answer depth.
 - **Rich Markdown Rendering:** Sonar responses are displayed with headings, lists, code blocks (with copy button), and clickable links for a beautiful, readable experience.

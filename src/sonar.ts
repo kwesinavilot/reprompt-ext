@@ -32,7 +32,7 @@ export interface SonarApiResponse {
   [key: string]: any;
 }
 
-const systemPrompt3 = `
+const optimizeSystemPrompt = `
 You are an senior prompt engineer and code architect specializing in transforming vague developer requirements into comprehensive, structured prompts that are ready to be used with general-purpose and code-specific Large Language Models.
 Your goal is to create prompts that are highly instructive and tailored to the developer's specific project context, focusing on generating prompts for specific development tasks, and sometimes full apps.
 
@@ -72,6 +72,31 @@ YOUR OUTPUT MUST BE THE PROPMT ITSELF, NOT AN EXPLANATION AND MUST BE A WELL-STR
 
 BE CONCISE YET COMPREHENSIVE - INCLUDE EVERYTHING NEEDED FOR QUALITY RESULTS.
 `;
+
+const examplesPrompt = (numExamples: number, instruction: string) => `
+As a senior prompt engineer, generate ${numExamples} diverse, high-quality examples that demonstrate the practical application of the provided instruction, context or prompt. 
+
+Your examples should:
+1. Be comprehensive and illustrative of different use cases or scenarios
+2. Demonstrate different aspects, edge cases, and variations of the instruction
+3. Be concrete and specific, not abstract or generic
+4. Include relevant context, constraints, and expected outcomes
+5. Follow best practices for the domain or technology involved
+6. Be formatted clearly with bullet points for readability
+
+Each example should be structured to show:
+- The specific scenario or context
+- The precise implementation approach
+- Any relevant technical details or considerations
+- Expected outcomes or success criteria
+
+IMPORTANT: Make each example distinct and valuable, covering a range of complexity levels and use cases. Ensure the examples are directly applicable to the instruction and would help the developer understand how to implement it effectively.
+
+Format your response as ${numExamples} separate bullet points, with clear numbering and concise yet comprehensive descriptions.
+
+Here are INSTRUCTION: "${instruction}"
+`;
+
 
 // Utility: Promise with timeout
 async function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
@@ -219,7 +244,7 @@ export class SonarApiService {
    * Optimize a prompt using a system message.
    */
   async optimizePrompt(raw: string): Promise<string> {
-    const systemPrompt = systemPrompt3;
+    const systemPrompt = optimizeSystemPrompt;
 
     const messages: Message[] = [
       { role: 'system', content: systemPrompt },
@@ -232,8 +257,6 @@ export class SonarApiService {
     return extractContentFromResponse(response);
   }
 }
-
-// --- Utility functions ---
 
 /**
  * Extracts the main content string from a Sonar API response.
@@ -303,6 +326,21 @@ export async function runWithSonarRegex(
 ): Promise<string | null> {
   const service = new SonarApiService(apiKey);
   return service.runPromptWithRegex(prompt, regex, options);
+}
+
+/**
+ * Generate illustrative examples for a given instruction using Sonar.
+ */
+export async function generateExamplesWithSonar(
+  instruction: string,
+  numExamples: number,
+  apiKey: string,
+  model?: string,
+  searchContextSize?: 'low' | 'medium' | 'high'
+): Promise<string> {
+  const prompt = examplesPrompt(numExamples, instruction);
+  const result = await runWithSonarApi(prompt, apiKey, model, searchContextSize);
+  return result?.choices?.[0]?.message?.content?.trim() || '';
 }
 
 // async function runWithSonar(context: vscode.ExtensionContext) {
