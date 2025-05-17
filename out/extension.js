@@ -237,7 +237,7 @@ async function transformPrompt(context) {
         }, async (progress) => {
             await showProgressSteps(progress, theme, async () => {
                 // If optimizeWithSonar is extended to accept model and searchContextSize, pass them here
-                const transformed = await getTransformedPrompt(raw + stackContext, apiKey, sonarModel, searchContextSize);
+                const transformed = await (0, sonar_1.optimizeWithSonar)(raw + stackContext, apiKey, sonarModel, searchContextSize);
                 await applyTransformedPrompt(editor, selection, transformed);
                 highlightXmlTags(editor, selection.start, transformed);
                 if (showStats) {
@@ -258,7 +258,6 @@ async function transformPrompt(context) {
         vscode.window.showErrorMessage('Sonar transformation failed: ' + err.message);
     }
 }
-// --- Refactored helper functions ---
 async function showProgressSteps(progress, theme, mainTask) {
     progress.report({ message: theme.preparing });
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -271,11 +270,6 @@ async function showProgressSteps(progress, theme, mainTask) {
     progress.report({ message: theme.highlighting });
     await new Promise(resolve => setTimeout(resolve, 100));
     progress.report({ message: theme.completed });
-}
-async function getTransformedPrompt(raw, stackContext, apiKey, model, searchContextSize) {
-    // If optimizeWithSonar is extended to accept model and searchContextSize, pass them here
-    // For now, just call as before
-    return (0, sonar_1.optimizeWithSonar)(raw + stackContext, apiKey);
 }
 async function applyTransformedPrompt(editor, selection, transformed) {
     await editor.edit(editBuilder => editBuilder.replace(selection, transformed));
@@ -501,7 +495,6 @@ async function runWithSonar(context) {
         vscode.window.showErrorMessage(msg);
     }
 }
-// Refactored function to setup the webview and message handling
 function setupSonarWebview(panel, prompt, apiKey, context, result, theme) {
     // Clean up any existing handler for this panel
     if (panelMessageHandlers.has(panel)) {

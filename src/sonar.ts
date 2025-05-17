@@ -283,9 +283,30 @@ export function extractJsonFromContent<T = any>(content: string): T | null {
 
 // --- Legacy wrappers for extension code ---
 
-export async function optimizeWithSonar(raw: string, apiKey: string): Promise<string> {
+export async function optimizeWithSonar(
+  context: string,
+  apiKey: string,
+  model?: string,
+  searchContextSize?: 'low' | 'medium' | 'high'
+): Promise<string> {
   const service = new SonarApiService(apiKey);
-  return service.optimizePrompt(raw);
+
+  const systemPrompt = optimizeSystemPrompt;
+
+  const messages: Message[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: context }
+  ];
+
+  const response = await service.chatCompletions({
+    model: model || 'sonar',
+    messages,
+    web_search_options: { search_context_size: searchContextSize || 'medium' }
+  });
+
+  return extractContentFromResponse(response);
+
+  // return service.optimizePrompt(context);
 }
 
 export async function runWithSonarApi(

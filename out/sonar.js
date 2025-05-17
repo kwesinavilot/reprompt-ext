@@ -231,9 +231,20 @@ function extractJsonFromContent(content) {
     }
 }
 // --- Legacy wrappers for extension code ---
-async function optimizeWithSonar(raw, apiKey) {
+async function optimizeWithSonar(context, apiKey, model, searchContextSize) {
     const service = new SonarApiService(apiKey);
-    return service.optimizePrompt(raw);
+    const systemPrompt = optimizeSystemPrompt;
+    const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: context }
+    ];
+    const response = await service.chatCompletions({
+        model: model || 'sonar',
+        messages,
+        web_search_options: { search_context_size: searchContextSize || 'medium' }
+    });
+    return extractContentFromResponse(response);
+    // return service.optimizePrompt(context);
 }
 async function runWithSonarApi(prompt, apiKey, model, searchContextSize) {
     const service = new SonarApiService(apiKey);

@@ -221,7 +221,7 @@ async function transformPrompt(context: vscode.ExtensionContext) {
       async (progress) => {
         await showProgressSteps(progress, theme, async () => {
           // If optimizeWithSonar is extended to accept model and searchContextSize, pass them here
-          const transformed = await getTransformedPrompt(raw + stackContext, apiKey, sonarModel, searchContextSize);
+          const transformed = await optimizeWithSonar(raw + stackContext, apiKey, sonarModel, searchContextSize);
           await applyTransformedPrompt(editor, selection, transformed);
           highlightXmlTags(editor, selection.start, transformed);
           if (showStats) {
@@ -243,8 +243,6 @@ async function transformPrompt(context: vscode.ExtensionContext) {
   }
 }
 
-// --- Refactored helper functions ---
-
 async function showProgressSteps(
   progress: vscode.Progress<{ message?: string }>,
   theme: any,
@@ -261,18 +259,6 @@ async function showProgressSteps(
   progress.report({ message: theme.highlighting });
   await new Promise(resolve => setTimeout(resolve, 100));
   progress.report({ message: theme.completed });
-}
-
-async function getTransformedPrompt(
-  raw: string,
-  stackContext: string,
-  apiKey: string,
-  model?: string,
-  searchContextSize?: 'low' | 'medium' | 'high'
-): Promise<string> {
-  // If optimizeWithSonar is extended to accept model and searchContextSize, pass them here
-  // For now, just call as before
-  return optimizeWithSonar(raw + stackContext, apiKey);
 }
 
 async function applyTransformedPrompt(
@@ -542,7 +528,6 @@ async function runWithSonar(context: vscode.ExtensionContext) {
   }
 }
 
-// Refactored function to setup the webview and message handling
 function setupSonarWebview(
   panel: vscode.WebviewPanel,
   prompt: string,
