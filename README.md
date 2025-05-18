@@ -8,6 +8,7 @@ Whether you're crafting prompts for code generation, documentation, or technical
 
 - **Prompt Transformation:** Turn simple ideas into comprehensive, structured prompts with a single command.
 - **Project Context Awareness:** Automatically detects your project's technology stack and incorporates it into transformed prompts.
+- **Custom Prompt Rules:** Define team/project-specific prompt rules through `.rpmt.*` or `.rprmt.*` files in your workspace.
 - **Prompt Execution:** Run prompts with Sonar and view responses in a formatted webview.
 - **Generate Examples:** Generate examples for your prompts to improve accuracy.
 - **Prompt Statistics:** View transformation statistics for original vs. transformed length, expansion ratio, processing time, and summary of changes.
@@ -44,7 +45,6 @@ code --install-extension kwesinavilot.reprompt
 ```
 
 ## Configuration
-
 1. Open Command Palette (`Ctrl+Shift+P`).
 2. Type `Preferences: Open Settings (UI)` and press Enter.
 3. Search for `reprompt` to see all available settings:
@@ -57,7 +57,6 @@ code --install-extension kwesinavilot.reprompt
 ## Usage
 
 ### Transform a Prompt
-
 Transform a simple idea into a comprehensive, structured prompt:
 
 1. Create a new `.md` or `.reprompt` file.
@@ -67,19 +66,32 @@ Transform a simple idea into a comprehensive, structured prompt:
 5. Watch as your simple idea is transformed into a detailed, structured prompt with XML tags.
 6. The extension automatically detects your project's technology stack and incorporates it into the transformed prompt.
 
+### Define Custom Prompt Rules
+Create team or project-specific prompt rules:
+
+1. Create a file in your workspace root with `.rpmt.` or `.rprmt.` in its name (e.g., `team-rules.rpmt.md`, `company.rprmt.json`).
+2. For Markdown files: Write your rules in plain text.
+3. For JSON files: Create key-value pairs of rule names and descriptions.
+4. For YAML files: Create key-value pairs similar to JSON.
+5. The extension will automatically detect and apply these rules during prompt transformation.
+
+Example `team-rules.rpmt.md`:
+```markdown
+Always use TypeScript instead of JavaScript.
+Follow the company's API naming convention: /api/v1/resource.
+Include unit tests for all new functions.
+Use Material UI components for all UI elements.
+```
+
 ### Run a Prompt
-
 Execute a prompt and see the AI's response:
-
 1. Select a prompt or leave the cursor in a prompt file.
 2. Press `Ctrl+Shift+R` or right-click and choose **Reprompt: Run with Sonar**.
 3. The response appears in a webview with rich formatting, code blocks, and a stats footer.
 4. Use the refresh button to regenerate the response if needed.
 
 ### View Transformation Statistics
-
 If you've enabled transformation statistics in settings:
-
 1. After transforming a prompt, a statistics panel will open showing:
    - Original vs. transformed length and word count
    - Expansion ratio
@@ -87,7 +99,6 @@ If you've enabled transformation statistics in settings:
    - Summary of changes
 
 ### Supported File Types
-
 Reprompt commands work with the following file types:
 - `.md`
 - `.prompt.md`
@@ -99,7 +110,6 @@ Reprompt commands work with the following file types:
 ### Developer Guide: Creating Effective Prompts
 
 #### Basic Workflow
-
 1. **Start Simple**: Begin with a clear, concise description of what you need.
 2. **Transform**: Use the Transform command to expand your idea into a structured prompt.
 3. **Refine**: Adjust the transformed prompt if needed to add specific details.
@@ -107,7 +117,6 @@ Reprompt commands work with the following file types:
 5. **Iterate**: Based on the response, refine your prompt further if needed.
 
 #### Prompt Structure
-
 The transformation process adds structure using XML-style tags:
 
 - `<context>`: Background information and constraints
@@ -117,19 +126,16 @@ The transformation process adds structure using XML-style tags:
 - `<format>`: How the response should be structured
 
 #### Example Workflow
-
 1. **Simple idea**: "create a voice assistant for elderly people"
 2. **After transformation**: A comprehensive prompt with context about elderly users, specific features needed, accessibility considerations, and format requirements.
 3. **Run the prompt**: Get a detailed response that follows your structured requirements.
 
 ## Commands & Shortcuts
-
 - **Reprompt: Transform Prompt** — `Ctrl+Shift+O`
 - **Reprompt: Run with Sonar** — `Ctrl+Shift+R`
 - **Reprompt: Test** — (No default shortcut, accessible via Command Palette)
 
 ## FAQ
-
 **Q: Is my data sent to Perplexity?**  
 A: Yes, all prompts are sent securely to the Perplexity Sonar API. No data is processed locally.
 
@@ -161,13 +167,11 @@ A: Use the `reprompt.sonarSearchContextSize` setting (`low`, `medium`, `high`) t
 A: Reprompt works with `.md`, `.prompt.md`, `.reprompt`, `.reprompt.md`, `.cursor.md`, and `copilot-instructions.md` files.
 
 ## Troubleshooting
-
 - **Command not working?** Make sure you've set your Sonar API key in settings.
 - **Transformation taking too long?** Check your internet connection, Sonar API status, or try lowering the search context size.
 - **Need more information?** Open the Output panel and select "Reprompt" from the dropdown to see detailed logs.
 
 ## Support
-
 If you have any questions, suggestions, or feedback, please [open an issue](https://github.com/kwesinavilot/reprompt-ext/issues/new).
 
 ## Contributing

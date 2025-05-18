@@ -2,10 +2,10 @@
     "name": "reprompt",
     "displayName": "Reprompt",
     "description": "Optimize and enhance prompts using the Perplexity Sonar API.",
-    "version": "0.10.0",
+    "version": "0.11.0",
     "publisher": "kwesinavilot",
     "author": {
-        "name": "Kwesinavilot",
+        "name": "Andrews Kwesi Ankomahene",
         "url": "https://github.com/kwesinavilot"
     },
     "icon": "images/icon.png",
@@ -153,7 +153,11 @@
                 "reprompt.sonarSearchContextSize": {
                     "type": "string",
                     "default": "medium",
-                    "enum": ["low", "medium", "high"],
+                    "enum": [
+                        "low",
+                        "medium",
+                        "high"
+                    ],
                     "enumDescriptions": [
                         "Best for short factual queries or when operating under strict token cost constraints.",
                         "The default and best suited for general use cases.",
@@ -201,6 +205,7 @@
         "publish": "vsce publish"
     },
     "devDependencies": {
+        "@types/js-yaml": "^4.0.9",
         "@types/node": "^20.x",
         "@types/vscode": "^1.85.0",
         "@typescript-eslint/eslint-plugin": "^6.15.0",
@@ -212,6 +217,7 @@
         "vsce": "^2.0.0"
     },
     "dependencies": {
+        "js-yaml": "^4.1.0",
         "node-fetch": "^2.7.0"
     }
 }

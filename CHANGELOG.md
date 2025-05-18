@@ -6,7 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 # Changelog
 
-## [0.10.0] - 2024-06-XX
+## [0.11.0] - 2025-05-18
+
+### Added
+- **Custom Prompt Rules:** Added support for team/project-specific prompt rules through `.rpmt.*` files in the workspace root. Supports Markdown, JSON, and YAML formats.
+- **Flexible Rule File Naming:** Any file containing `.rpmt.` in its name (e.g., `team-rules.rpmt.md`, `company.rpmt.json`) will be detected and used.
+- **Enhanced System Prompt:** Updated the system prompt to incorporate user-defined rules while maintaining the core transformation capabilities.
+
+## [0.10.0] - 2025-06-17
 
 ### Added
 - **Context Menu Separator:** Added a horizontal rule after Reprompt commands in the editor context menu for better visual separation.
@@ -21,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Context Menu Command Activation:** Fixed an issue where "Reprompt: Generate Examples" and other commands would not appear or work from the context menu for certain file types.
 - **VS Code Warning:** Resolved the warning about an undefined `-` command in the menu configuration.
 
-## [0.8.0] - 2024-05-14
+## [0.8.0] - 2025-05-14
 
 ### Added
 - **Sonar Model Selection:** Users can now choose from multiple Sonar models (`sonar`, `sonar-pro`, `sonar-deep-research`, `sonar-reasoning`, `sonar-reasoning-pro`, `r1-1776`) in settings for both transformation and execution.
@@ -40,7 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Ensured all supported file types are recognized for context menu and command palette actions.
 - Improved robustness of error handling for network failures and timeouts.
 
-## [0.7.0] - 2024-05-13
+## [0.7.0] - 2025-05-13
 
 ### Changed
 - Improved the 'Run With Sonar' regeneration process to ensure proper functionality
@@ -48,7 +55,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added a timeout fallback for Sonar API calls to prevent hangs
 - Improved error handling and user feedback for missing API key or selection.
 
-## [0.6.0] - 2024-05-10
+## [0.6.0] - 2025-05-10
 
 ### Added
 - Project stack detection: Automatically identifies the technology stack of the current project (Node.js, Python, PHP, Ruby, Java, .NET, Go, Rust) and includes this context in prompt transformations
@@ -67,7 +74,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - HTML escaping in rendered content
 - Proper handling of regeneration requests from webviews
 
-## [0.5.1] - 2024-05-8
+## [0.5.1] - 2025-05-8
 
 ### Added
 - Added the License and logo files
@@ -78,7 +85,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Enhanced button hover styling to better adapt to user's VS Code theme
 - Improved webview UI elements to respect VS Code's color variables
 
-## [0.5.0] - 2024-05-8
+## [0.5.0] - 2025-05-8
 
 ### Added
 - Themed progress notifications: Fun, randomly selected progress messages (magical, tech, or cooking themes) for transforming and running prompts.
@@ -170,7 +177,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.1.1] - 2024-05-04
+## [0.1.1] - 2025-05-04
 
 ### Added
 - Inline decorations to highlight injected XML tags (`<context>`, `<instruction>`, `<examples>`, `<format>`) after optimization.

@@ -3,14 +3,27 @@ import { optimizeWithSonar, runWithSonarApi, generateExamplesWithSonar } from '.
 import * as path from 'path';
 import * as fs from 'fs';
 import * as util from 'util';
+import * as yaml from 'js-yaml';
 
 const readFileAsync = util.promisify(fs.readFile);
-
 const outputChannel = vscode.window.createOutputChannel('Reprompt');
 
 // Store the message handlers for each panel
 const panelMessageHandlers = new Map<vscode.WebviewPanel, (message: any) => void>();
 
+let promptScoreStatusBar: vscode.StatusBarItem;
+let userPromptRules: string | null = null;
+
+/**
+ * Called when the extension is activated.
+ *
+ * Performs the following tasks:
+ * - Register commands for optimizing prompts, running with Sonar, generating examples, and a test command.
+ * - Registers a status bar item for displaying the prompt score.
+ * - Listens for changes to the active text editor, text editor selection, or text document to update the status bar.
+ * - Loads the user prompt rules file (if present) and logs success or failure.
+ * - Updates the prompt score status bar item initially.
+ */
 export function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Reprompt extension activated');
 
@@ -22,8 +35,27 @@ export function activate(context: vscode.ExtensionContext) {
       outputChannel.show();
       outputChannel.appendLine('Test command executed successfully');
       vscode.window.showInformationMessage('Reprompt test command works!');
-    })
+    }),
+
+    // Prompt Score details command
+    vscode.commands.registerCommand('reprompt.showPromptScoreDetails', showPromptScoreDetails)
   );
+
+  // Status bar for prompt score
+  promptScoreStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  promptScoreStatusBar.command = 'reprompt.showPromptScoreDetails';
+  context.subscriptions.push(promptScoreStatusBar);
+
+  // Update score on editor/selection change
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(updatePromptScoreStatusBar),
+    vscode.window.onDidChangeTextEditorSelection(updatePromptScoreStatusBar),
+    vscode.workspace.onDidChangeTextDocument(updatePromptScoreStatusBar)
+  );
+
+  // Initial update
+  loadUserPromptRules()
+  updatePromptScoreStatusBar();
 }
 
 // Define the themes at the top of your file or in a separate themes.ts file
@@ -57,12 +89,35 @@ const progressThemes = [
   }
 ];
 
-// Function to get a random theme
+/**
+ * Returns a random theme from the progressThemes array.
+ * Each theme is an object with keys for the different progress messages
+ * that are displayed during the transformation process.
+ * The keys and their corresponding messages are:
+ *   - preparing: The initial message displayed while the transformation
+ *     process is starting.
+ *   - sending: The message displayed while the prompt is being sent to the
+ *     Sonar API.
+ *   - processing: The message displayed while the response is being processed
+ *     by the Sonar API.
+ *   - applying: The message displayed while the response is being applied to
+ *     the document.
+ *   - highlighting: The message displayed while the response is being formatted
+ *     and highlighted.
+ *   - completed: The final message displayed after the transformation process
+ *     has completed.
+ * @returns {Object} A random theme object.
+ */
 function getRandomTheme() {
   const randomIndex = Math.floor(Math.random() * progressThemes.length);
   return progressThemes[randomIndex];
 }
 
+/**
+ * Tries to detect the project stack by searching for known project files.
+ * Currently detects Node.js/TypeScript/JavaScript, Python, PHP, Ruby, Java, .NET, Go and Rust.
+ * @returns A string with the inferred project stack, or an empty string if no project stack could be detected.
+ */
 async function inferProjectStack(): Promise<string> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) return '';
@@ -153,17 +208,51 @@ async function inferProjectStack(): Promise<string> {
     : '';
 }
 
+/**
+ * Retrieves the preferred Sonar model from settings.
+ * 
+ * The Sonar model determines which AI model is used for the transformation.
+ * The default value is 'sonar' if not set. If the setting is not set or
+ * an invalid value is provided, the function returns 'sonar'.
+ * 
+ * @returns The preferred Sonar model ('sonar-pro', 'sonar', 'sonar-deep-research',
+ * 'sonar-reasoning-pro', 'sonar-reasoning', or 'r1-1776').
+ */
 function getSonarModel(): string {
   // Default to "sonar" if not set
   return vscode.workspace.getConfiguration().get<string>('reprompt.sonarModel') || 'sonar';
 }
 
+/**
+ * Retrieves the preferred Sonar search context size from settings.
+ * 
+ * The Sonar search context size determines how much web context is retrieved
+ * for each prompt. The default value is 'medium'. If the setting is not set or
+ * an invalid value is provided, the function returns 'medium'.
+ * 
+ * @returns The preferred search context size ('low', 'medium', or 'high').
+ */
 function getSonarSearchContextSize(): 'low' | 'medium' | 'high' {
   const val = vscode.workspace.getConfiguration().get<string>('reprompt.sonarSearchContextSize');
   if (val === 'low' || val === 'medium' || val === 'high') return val;
   return 'medium';
 }
 
+/**
+ * Transforms a simple idea into a comprehensive, structured prompt with context-aware AI assistance.
+ * 
+ * The function performs the following actions:
+ * - Verifies the presence of an active text editor and a valid prompt.
+ * - Retrieves the API key and validates the file type.
+ * - Chooses a random theme for the progress messages.
+ * - Retrieves the project stack (if enabled) and appends it to the prompt.
+ * - Sends the prompt to the Sonar API and processes the response.
+ * - Measures and logs the elapsed time for the API call.
+ * - Creates a webview panel to display the response, and sets up message handling.
+ * - Handles network errors and timeouts with user-friendly messages.
+ * 
+ * @param context - The VS Code extension context.
+ */
 async function transformPrompt(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Transform prompt command triggered');
   const editor = vscode.window.activeTextEditor;
@@ -194,7 +283,7 @@ async function transformPrompt(context: vscode.ExtensionContext) {
   }
 
   const theme = getRandomTheme();
-  outputChannel.appendLine(`Using theme with first message: ${theme.preparing}`);
+  outputChannel.appendLine(`[Reprompt] Using theme with first message: ${theme.preparing}`);
 
   let stackContext = '';
   if (inferStack) {
@@ -220,10 +309,19 @@ async function transformPrompt(context: vscode.ExtensionContext) {
       },
       async (progress) => {
         await showProgressSteps(progress, theme, async () => {
-          // If optimizeWithSonar is extended to accept model and searchContextSize, pass them here
-          const transformed = await optimizeWithSonar(raw + stackContext, apiKey, sonarModel, searchContextSize);
+          // If optimizeWithSonar is extended to accept model and searchContextSize and user prompt file, pass them here
+          const transformed = await optimizeWithSonar(
+            raw + stackContext,
+            apiKey, 
+            sonarModel, 
+            searchContextSize,
+            userPromptRules
+          );
+          
           await applyTransformedPrompt(editor, selection, transformed);
+          
           highlightXmlTags(editor, selection.start, transformed);
+          
           if (showStats) {
             showTransformationStatsPanel(context, {
               originalLength,
@@ -232,17 +330,25 @@ async function transformPrompt(context: vscode.ExtensionContext) {
               startTime
             });
           }
+          
           const expansionPercent = Math.round(((transformed.length / raw.length) - 1) * 100);
+          
           vscode.window.showInformationMessage(`Prompt transformed successfully! Expanded by ${expansionPercent}%.`);
         });
       }
     );
   } catch (err: any) {
-    outputChannel.appendLine(`Transformation error: ${err.message}`);
+    outputChannel.appendLine(`[Reprompt] Transformation error: ${err.message}`);
     vscode.window.showErrorMessage('Sonar transformation failed: ' + err.message);
   }
 }
 
+/**
+ * Shows progress steps for an operation with a themed progress bar.
+ * @param {vscode.Progress<{ message?: string }>} progress - The progress bar to update.
+ * @param {any} theme - An object with themed message strings for the different steps.
+ * @param {() => Promise<void>} mainTask - The main operation to perform.
+ */
 async function showProgressSteps(
   progress: vscode.Progress<{ message?: string }>,
   theme: any,
@@ -261,6 +367,13 @@ async function showProgressSteps(
   progress.report({ message: theme.completed });
 }
 
+/**
+ * Applies the transformed prompt to the VS Code editor.
+ *
+ * @param {vscode.TextEditor} editor - The VS Code editor to modify.
+ * @param {vscode.Selection} selection - The selection to replace with the transformed prompt.
+ * @param {string} transformed - The transformed prompt to apply.
+ */
 async function applyTransformedPrompt(
   editor: vscode.TextEditor,
   selection: vscode.Selection,
@@ -269,6 +382,12 @@ async function applyTransformedPrompt(
   await editor.edit(editBuilder => editBuilder.replace(selection, transformed));
 }
 
+/**
+ * Shows a webview panel with transformation statistics.
+ *
+ * @param {vscode.ExtensionContext} context
+ * @param {{ originalLength: number; originalWords: number; transformed: string; startTime: number }} opts
+ */
 function showTransformationStatsPanel(
   context: vscode.ExtensionContext,
   opts: { originalLength: number; originalWords: number; transformed: string; startTime: number }
@@ -390,10 +509,26 @@ function showTransformationStatsPanel(
       </html>
     `;
   } catch (err) {
-    outputChannel.appendLine(`Error showing stats: ${err}`);
+    outputChannel.appendLine(`[Reprompt] Error showing stats: ${err}`);
   }
 }
 
+/**
+ * Executes the "Run with Sonar" command, which processes the selected text or
+ * entire document in the active editor using the Sonar API. Displays progress
+ * notifications and handles errors gracefully with themed messages.
+ * 
+ * The function performs the following actions:
+ * - Verifies the presence of an active text editor and a valid prompt.
+ * - Retrieves the API key and validates the file type.
+ * - Chooses a random theme for the progress messages.
+ * - Sends the prompt to the Sonar API and processes the response.
+ * - Measures and logs the elapsed time for the API call.
+ * - Creates a webview panel to display the response, and sets up message handling.
+ * - Handles network errors and timeouts with user-friendly messages.
+ * 
+ * @param context - The VS Code extension context.
+ */
 async function runWithSonar(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Run with Sonar command triggered');
 
@@ -428,7 +563,7 @@ async function runWithSonar(context: vscode.ExtensionContext) {
 
   // Select a random theme for this operation
   const theme = getRandomTheme();
-  outputChannel.appendLine(`Using theme with first message: ${theme.preparing}`);
+  outputChannel.appendLine(`[Reprompt] Using theme with first message: ${theme.preparing}`);
 
   try {
     await vscode.window.withProgress(
@@ -465,7 +600,7 @@ async function runWithSonar(context: vscode.ExtensionContext) {
               "🦄 Oops! The AI couldn't reach the cloud (network error or timeout). " +
               "Check your internet connection, try again, or give the unicorns a little break! 🦄";
           }
-          outputChannel.appendLine(`Network/Timeout error: ${msg}`);
+          outputChannel.appendLine(`[Reprompt] Network/Timeout error: ${msg}`);
           vscode.window.showErrorMessage(msg);
           throw new Error(msg);
         }
@@ -523,11 +658,21 @@ async function runWithSonar(context: vscode.ExtensionContext) {
         "🦄 Oops! The AI couldn't reach the cloud (network error or timeout). " +
         "Check your internet connection, try again, or give the unicorns a little break! 🦄";
     }
-    outputChannel.appendLine(`Run with Sonar error: ${msg}`);
+    outputChannel.appendLine(`[Reprompt] Run with Sonar error: ${msg}`);
     vscode.window.showErrorMessage(msg);
   }
 }
 
+/**
+ * Sets up a webview panel with an HTML string rendered from a Sonar response
+ * and a message handler that listens for regenerate commands from the webview.
+ * @param {vscode.WebviewPanel} panel - The webview panel to set up.
+ * @param {string} prompt - The original prompt used to generate the response.
+ * @param {string} apiKey - The Sonar API key to use for regeneration.
+ * @param {vscode.ExtensionContext} context - The extension context.
+ * @param {any} [result] - The Sonar response object to render in the webview.
+ * @param {any} [theme] - An object with themed message strings for the regeneration process.
+ */
 function setupSonarWebview(
   panel: vscode.WebviewPanel,
   prompt: string,
@@ -544,12 +689,12 @@ function setupSonarWebview(
   // Create a new message handler for this panel
   const messageHandler = async (message: any) => {
     console.log('Webview message received:', message);
-    outputChannel.appendLine(`[Webview] Received message: ${JSON.stringify(message)}`);
+    outputChannel.appendLine(`[Reprompt] [Webview] Received message: ${JSON.stringify(message)}`);
     // outputChannel.show(true);
 
     if (message.command === 'regenerate') {
       // vscode.window.showInformationMessage('Regenerating response...');
-      outputChannel.appendLine(`[Webview] Regenerate command received for messageId: ${message.messageId}`);
+      outputChannel.appendLine(`[Reprompt] [Webview] Regenerate command received for messageId: ${message.messageId}`);
 
       // Show progress notification for regeneration
       await vscode.window.withProgress(
@@ -590,7 +735,7 @@ function setupSonarWebview(
             outputChannel.appendLine('[Regenerate] Regeneration completed successfully.');
           } catch (err: any) {
             vscode.window.showErrorMessage('Regeneration failed: ' + err.message);
-            outputChannel.appendLine(`[Regenerate] Error: ${err.message}`);
+            outputChannel.appendLine(`[Reprompt] [Regenerate] Error: ${err.message}`);
           }
         }
       );
@@ -617,6 +762,18 @@ function setupSonarWebview(
   }, null, context.subscriptions);
 }
 
+/**
+ * Highlights XML tags in a given text within a VSCode editor.
+ *
+ * This function searches for specific XML tags such as <context>, <instruction>, 
+ * <examples>, and <format> within the provided text and visually highlights them 
+ * by applying a temporary background and border decoration in the editor. 
+ * The highlighting lasts for 3 seconds before being automatically removed.
+ *
+ * @param editor - The VSCode text editor instance where the decorations will be applied.
+ * @param start - The starting position in the editor from where the text is being analyzed.
+ * @param text - The text content in which the XML tags are searched and highlighted.
+ */
 function highlightXmlTags(editor: vscode.TextEditor, start: vscode.Position, text: string) {
   const tagRegex = /<(context|instruction|examples|format)>.*?<\/\1>/gs;
   const decorations: vscode.DecorationOptions[] = [];
@@ -640,6 +797,16 @@ function highlightXmlTags(editor: vscode.TextEditor, start: vscode.Position, tex
   setTimeout(() => decorationType.dispose(), 3000);
 }
 
+/**
+ * Escapes HTML special characters in a given string, replacing them with
+ * their corresponding HTML entities:
+ * - `&` becomes `&amp;`
+ * - `<` becomes `&lt;`
+ * - `>` becomes `&gt;`
+ *
+ * @param {string} text - The string to escape.
+ * @returns {string} The escaped string.
+ */
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -647,6 +814,19 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;');
 }
 
+/**
+ * Syntax-highlights a given JSON string by wrapping each value in a `<span>`
+ * element with an appropriate class. The classes are:
+ *
+ * - `number`: for numbers
+ * - `string`: for strings
+ * - `key`: for object keys
+ * - `boolean`: for booleans
+ * - `null`: for null values
+ *
+ * @param {string} json - The JSON string to syntax-highlight.
+ * @returns {string} The syntax-highlighted string.
+ */
 function syntaxHighlight(json: string) {
   return json.replace(
     /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
@@ -664,6 +844,11 @@ function syntaxHighlight(json: string) {
   );
 }
 
+/**
+ * Renders an HTML string for a Sonar response webview.
+ * @param {any} result - The Sonar response to render.
+ * @returns {string} The rendered HTML string.
+ */
 function renderSonarWebview(result: any): string {
   // Extract the main message content
   const content = result?.choices?.[0]?.message?.content || '(No response)';
@@ -1022,6 +1207,18 @@ function renderSonarWebview(result: any): string {
   </html>`;
 }
 
+/**
+ * Returns true if the given document is a prompt file, false otherwise.
+ *
+ * Currently, prompt files are any of the following:
+ * - Files with the extension `.md`
+ * - Files with the extension `.prompt.md`
+ * - Files with the extension `.reprompt`
+ * - Files with the extension `.reprompt.md`
+ * - Files with the extension `.cursor.md`
+ * - Files named `copilot-instructions.md`
+ * - Files named `.rpmt.md`
+ */
 function isPromptFile(document: vscode.TextDocument): boolean {
   const name = document.fileName.toLowerCase();
   return (
@@ -1030,10 +1227,41 @@ function isPromptFile(document: vscode.TextDocument): boolean {
     name.endsWith('.reprompt') ||
     name.endsWith('.reprompt.md') ||
     name.endsWith('.cursor.md') ||
-    name.endsWith('copilot-instructions.md')
+    name.endsWith('copilot-instructions.md') ||
+    name.endsWith('.rpmt.md')
   );
 }
 
+/**
+ * Generates examples for the current instruction (or selection if no instruction
+ * is present) using Sonar.
+ *
+ * This function is called when the user triggers the "Generate Examples" command.
+ *
+ * It will ask the user how many examples to generate if the
+ * `reprompt.examplesAskEachTime` configuration is set to `true`. Otherwise, it
+ * will use the value set in `reprompt.examplesDefaultCount` (defaulting to 3 if
+ * not set).
+ *
+ * The instruction can be specified in three ways (in order of precedence):
+ * - The user can select some text in the editor, which will be used as the
+ *   instruction.
+ * - The instruction can be specified inside `<instruction>...</instruction>` tags
+ *   in the selection or document.
+ * - If neither of the above is present, the whole document will be used as the
+ *   instruction.
+ *
+ * The function will then call the `generateExamplesWithSonar` function to
+ * generate the examples using Sonar.
+ *
+ * If Sonar returns an error, the function will show an error message to the user.
+ *
+ * If Sonar returns successfully, the function will insert the generated examples
+ * into the document inside `<examples>...</examples>` tags, either replacing an
+ * existing block or inserting a new one.
+ *
+ * @param context - The VS Code extension context.
+ */
 async function generateExamples(context: vscode.ExtensionContext) {
   // Always show the output channel for debugging
   outputChannel.show(true);
@@ -1054,7 +1282,7 @@ async function generateExamples(context: vscode.ExtensionContext) {
   const askEachTime = vscode.workspace.getConfiguration().get<boolean>('reprompt.examplesAskEachTime');
   let numExamples = vscode.workspace.getConfiguration().get<number>('reprompt.examplesDefaultCount') || 3;
 
-  outputChannel.appendLine(`askEachTime: ${askEachTime}, numExamples: ${numExamples}`);
+  outputChannel.appendLine(`[Reprompt] askEachTime: ${askEachTime}, numExamples: ${numExamples}`);
 
   if (askEachTime) {
     const input = await vscode.window.showInputBox({
@@ -1071,7 +1299,7 @@ async function generateExamples(context: vscode.ExtensionContext) {
       return;
     }
     numExamples = Number(input);
-    outputChannel.appendLine(`User entered numExamples: ${numExamples}`);
+    outputChannel.appendLine(`[Reprompt] User entered numExamples: ${numExamples}`);
   }
 
   // Try to extract <instruction> content if present, else use selection or whole document
@@ -1110,7 +1338,7 @@ async function generateExamples(context: vscode.ExtensionContext) {
   const sonarModel = getSonarModel();
   const searchContextSize = getSonarSearchContextSize();
 
-  outputChannel.appendLine(`About to call Sonar: instruction="${instruction}", numExamples=${numExamples}, model=${sonarModel}, contextSize=${searchContextSize}`);
+  outputChannel.appendLine(`[Reprompt] About to call Sonar for examples: numExamples=${numExamples}, model=${sonarModel}, contextSize=${searchContextSize}`);
 
   try {
     await vscode.window.withProgress(
@@ -1121,7 +1349,7 @@ async function generateExamples(context: vscode.ExtensionContext) {
       },
       async (progress) => {
         progress.report({ message: 'Contacting Sonar...' });
-        outputChannel.appendLine(`Requesting ${numExamples} examples for: ${instruction}`);
+        outputChannel.appendLine(`[Reprompt] Requesting ${numExamples} examples from Sonar...`);
         let content: string | undefined = undefined;
         try {
           content = await generateExamplesWithSonar(
@@ -1178,11 +1406,290 @@ async function generateExamples(context: vscode.ExtensionContext) {
         });
 
         vscode.window.showInformationMessage(`Inserted ${numExamples} example(s) into <examples> block.`);
-        outputChannel.appendLine(`Inserted ${numExamples} example(s) into <examples> block.`);
+        outputChannel.appendLine(`[Reprompt] Inserted ${numExamples} example(s) into <examples> block.`);
       }
     );
   } catch (err: any) {
-    outputChannel.appendLine(`Generate Examples error: ${err?.message || err}`);
+    outputChannel.appendLine(`[Reprompt] Generate Examples error: ${err?.message || err}`);
     vscode.window.showErrorMessage('Failed to generate examples: ' + (err?.message || err));
+  }
+}
+
+
+/**
+ * Evaluate the quality of a prompt and return a score and suggestions.
+ * @param text The prompt text to evaluate.
+ * @returns An object with the following properties:
+ *   - score: A number from 0 to 5 indicating the prompt's quality.
+ *   - max: The maximum possible score (5).
+ *   - details: An array of strings explaining why the prompt received its score.
+ *   - suggestions: An array of strings suggesting how to improve the prompt.
+ */
+function scorePrompt(text: string): { score: number; max: number; details: string[]; suggestions: string[] } {
+  let score = 0;
+  let max = 5;
+  const details: string[] = [];
+  const suggestions: string[] = [];
+
+  // 1. <context> tag present
+  if (/<context>[\s\S]*?<\/context>/i.test(text)) {
+    score++; details.push('Has <context> section.');
+  } else {
+    suggestions.push('Add a <context> section.');
+  }
+
+  // 2. <instruction> tag present
+  if (/<instruction>[\s\S]*?<\/instruction>/i.test(text)) {
+    score++; details.push('Has <instruction> section.');
+  } else {
+    suggestions.push('Add an <instruction> section.');
+  }
+
+  // 3. <examples> tag present
+  if (/<examples>[\s\S]*?<\/examples>/i.test(text)) {
+    score++; details.push('Has <examples> section.');
+  } else {
+    suggestions.push('Add an <examples> section.');
+  }
+
+  // 4. Length within 200–2000 chars
+  if (text.length >= 200 && text.length <= 2000) {
+    score++; details.push('Length is within recommended bounds.');
+  } else {
+    suggestions.push('Keep prompt length between 200 and 2000 characters.');
+  }
+
+  // 5. Uses action verbs (simple heuristic)
+  if (/\b(create|build|implement|add|remove|update|validate|test|generate|refactor|design|write)\b/i.test(text)) {
+    score++; details.push('Uses action verbs.');
+  } else {
+    suggestions.push('Use action verbs in your instructions.');
+  }
+
+  return { score, max, details, suggestions };
+}
+
+/**
+ * Returns the text of the prompt currently in the active editor. If no text is
+ * selected, the entire document text is returned. If no editor is active, an
+ * empty string is returned.
+ * @returns {string}
+ */
+function getCurrentPromptText(): string {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return '';
+  const sel = editor.selection;
+  return !sel.isEmpty ? editor.document.getText(sel) : editor.document.getText();
+}
+
+/**
+ * Updates the status bar with the prompt quality score for the currently
+ * active editor. If no editor is active or the current document is not a 
+ * prompt file, the status bar is hidden. The score is calculated based on 
+ * the prompt text, and the status bar is updated with the score and a 
+ * tooltip providing more details. If the score is below a certain threshold, 
+ * the status bar background changes color to indicate a low score, and a 
+ * quick-fix suggestion message is displayed.
+ */
+
+function updatePromptScoreStatusBar() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || !isPromptFile(editor.document)) {
+    promptScoreStatusBar.hide();
+    return;
+  }
+  const text = getCurrentPromptText();
+  if (!text.trim()) {
+    promptScoreStatusBar.hide();
+    return;
+  }
+  const { score, max } = scorePrompt(text);
+  promptScoreStatusBar.text = `$(star) Prompt Score: ${score}/${max}`;
+  promptScoreStatusBar.tooltip = 'Click for prompt quality details and suggestions';
+  promptScoreStatusBar.show();
+
+  // Quick-fix suggestion if score is low
+  if (score < 3) {
+    promptScoreStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+    vscode.window.setStatusBarMessage('Prompt quality is low. Click the score for suggestions.', 3000);
+  } else {
+    promptScoreStatusBar.backgroundColor = undefined;
+  }
+}
+
+/**
+ * Shows a modal information message with the prompt quality score details and suggestions
+ * for the currently selected or edited prompt.
+ *
+ * @returns A promise that resolves when the information message is closed.
+ */
+async function showPromptScoreDetails() {
+  const text = getCurrentPromptText();
+  if (!text.trim()) {
+    vscode.window.showInformationMessage('No prompt found to score.');
+    return;
+  }
+  const { score, max, details, suggestions } = scorePrompt(text);
+  const msg = [
+    `Prompt Score: ${score}/${max}`,
+    '',
+    ...details.map(d => `• ${d}`),
+    ...(suggestions.length ? ['', 'Suggestions:', ...suggestions.map(s => `- ${s}`)] : [])
+  ].join('\n');
+  vscode.window.showInformationMessage(msg, { modal: true });
+}
+
+/**
+ * Loads user-defined prompt rules from the workspace's root directory.
+ * 
+ * This function searches for files with specific extensions (.rprmt.md, .rprmt.json, .rprmt.yaml, .rprmt.yml) 
+ * in the root of the current workspace. If a matching file is found, it reads and parses the content 
+ * based on the file type:
+ * - Markdown files (.md) are read as plain text.
+ * - JSON files (.json) are parsed into key-value pairs.
+ * - YAML files (.yaml, .yml) are parsed into key-value pairs.
+ * 
+ * The parsed content is stored in `userPromptRules`. If no rule file is found or parsing fails, 
+ * `userPromptRules` is set to null. The function logs the loading status to the output channel.
+ * 
+ * @returns A promise that resolves when the loading process is complete.
+ */
+async function loadUserPromptRules1(): Promise<void> {
+  outputChannel.appendLine('Looking for and loading user prompt rules...');
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    outputChannel.appendLine('No workspace folder found.');
+    userPromptRules = null;
+    return;
+  }
+  
+  const rootPath = workspaceFolders[0].uri.fsPath;
+  
+  const ruleFiles = [
+    '.rprmt.md',
+    '.rprmt.json',
+    '.rprmt.yaml',
+    '.rprmt.yml'
+  ];
+
+  for (const file of ruleFiles) {
+    const filePath = path.join(rootPath, file);
+    outputChannel.appendLine(`Checking for rule file: ${file}`);
+
+    if (fs.existsSync(filePath)) {
+      try {
+        outputChannel.appendLine(`Found rule file: ${file}`);
+        const content = await readFileAsync(filePath, 'utf8');
+
+        if (file.endsWith('.md')) {
+          userPromptRules = content.trim();
+          outputChannel.appendLine(`[Reprompt] Loaded user prompt rules from Markdown file: ${file}`);
+        } else if (file.endsWith('.json')) {
+          const obj = JSON.parse(content);
+          userPromptRules = Object.entries(obj)
+            .map(([k, v]) => `• ${k}: ${v}`)
+            .join('\n');
+          outputChannel.appendLine(`[Reprompt] Loaded user prompt rules from JSON file: ${file}`);
+        } else if (file.endsWith('.yaml') || file.endsWith('.yml')) {
+          const obj = yaml.load(content) as any;
+          if (typeof obj === 'object' && obj !== null) {
+            userPromptRules = Object.entries(obj)
+              .map(([k, v]) => `• ${k}: ${v}`)
+              .join('\n');
+          outputChannel.appendLine(`[Reprompt] Loaded user prompt rules from YAML file: ${file}`);
+          } else {
+            userPromptRules = content.trim();
+          }
+        }
+
+        outputChannel.appendLine(`[Reprompt] Loaded user prompt rules from successfully`);
+        return;
+      } catch (err) {
+        outputChannel.appendLine(`[Reprompt] Failed to parse ${file}: ${err}`);
+        vscode.window.showWarningMessage(`Reprompt: Failed to parse ${file}: ${err}`);
+      }
+    }
+  }
+  
+  userPromptRules = null;
+}
+
+async function loadUserPromptRules(): Promise<void> {
+  outputChannel.appendLine('Looking for and loading user prompt rules...');
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    outputChannel.appendLine('No workspace folder found.');
+    userPromptRules = null;
+    return;
+  }
+  
+  const rootPath = workspaceFolders[0].uri.fsPath;
+  
+  // Get all files in the workspace root
+  try {
+    const files = await fs.promises.readdir(rootPath);
+    
+    // Filter for files containing .rprmt. in their name
+    const ruleFiles = files.filter(file => file.includes('.rpmt.'));    
+    outputChannel.appendLine(`Found ${ruleFiles.length} potential rule files: ${ruleFiles.join(', ')}`);
+    
+    for (const file of ruleFiles) {
+      const filePath = path.join(rootPath, file);
+      outputChannel.appendLine(`Checking rule file: ${file}`);
+      
+      if (!file.endsWith('.rpmt.md') && !file.endsWith('.rpmt.json') && !file.endsWith('.rpmt.yaml') && !file.endsWith('.rpmt.yml')) {
+        outputChannel.appendLine(`Skipping unsupported file type: ${file}`);
+        continue;
+      }
+
+      try {
+        const stats = await fs.promises.stat(filePath);
+        if (!stats.isFile()) {
+          outputChannel.appendLine(`Skipping non-file: ${file}`);
+          continue;
+        }
+        
+        outputChannel.appendLine(`Found rule file: ${file}`);
+        const content = await fs.promises.readFile(filePath, 'utf8');
+        
+        if (file.endsWith('.md')) {
+          userPromptRules = content.trim();
+          outputChannel.appendLine(`[Reprompt] Loaded user prompt rules from Markdown file: ${file}`);
+        } else if (file.endsWith('.json')) {
+          const obj = JSON.parse(content);
+          userPromptRules = Object.entries(obj)
+            .map(([k, v]) => `• ${k}: ${v}`)
+            .join('\n');
+          outputChannel.appendLine(`[Reprompt] Loaded user prompt rules from JSON file: ${file}`);
+        } else if (file.endsWith('.yaml') || file.endsWith('.yml')) {
+          const obj = yaml.load(content) as any;
+          if (typeof obj === 'object' && obj !== null) {
+            userPromptRules = Object.entries(obj)
+              .map(([k, v]) => `• ${k}: ${v}`)
+              .join('\n');
+            outputChannel.appendLine(`[Reprompt] Loaded user prompt rules from YAML file: ${file}`);
+          } else {
+            userPromptRules = content.trim();
+          }
+        } else {
+          outputChannel.appendLine(`[Reprompt] Skipping unsupported file type: ${file}`);
+          continue;
+        }
+        
+        outputChannel.appendLine(`[Reprompt] Loaded user prompt rules successfully`);
+        return;
+      } catch (err) {
+        outputChannel.appendLine(`[Reprompt] Failed to parse ${file}: ${err}`);
+        vscode.window.showWarningMessage(`Reprompt: Failed to parse ${file}: ${err}`);
+      }
+    }
+    
+    outputChannel.appendLine('No valid rule files found.');
+    userPromptRules = null;
+  } catch (err) {
+    outputChannel.appendLine(`Error reading workspace directory: ${err}`);
+    userPromptRules = null;
   }
 }

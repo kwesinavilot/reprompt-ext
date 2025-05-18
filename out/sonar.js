@@ -8,7 +8,7 @@ exports.runWithSonarApi = runWithSonarApi;
 exports.runWithSonarJsonSchema = runWithSonarJsonSchema;
 exports.runWithSonarRegex = runWithSonarRegex;
 exports.generateExamplesWithSonar = generateExamplesWithSonar;
-const optimizeSystemPrompt = `
+const optimizeSystemPrompt = (userRules) => `
 You are an senior prompt engineer and code architect specializing in transforming vague developer requirements into comprehensive, structured prompts that are ready to be used with general-purpose and code-specific Large Language Models.
 Your goal is to create prompts that are highly instructive and tailored to the developer's specific project context, focusing on generating prompts for specific development tasks, and sometimes full apps.
 
@@ -19,6 +19,9 @@ You must generate the FINAL prompt that a developer will feed to their LLM of ch
 THINK STEP-BY-STEP AND RETURN THE FINAL PROMPT ONLY - WITHOUT EXPLANATIONS, REASONING, OR META-COMMENTARY. 
 
 YOUR OUTPUT MUST BE THE PROPMT ITSELF, NOT AN EXPLANATION AND MUST BE A WELL-STRUCTURED PROMPT THAT IS READY TO BE USED.
+
+### Team/Project Specific Rules:
+${userRules}
 
 ### Instructions:
 1. Define the specific app, feature or component to build (e.g., sidebar navigation, REST endpoint, form validation).  
@@ -94,6 +97,16 @@ class SonarApiService {
         this.baseUrl = 'https://api.perplexity.ai';
         this.apiKey = apiKey;
     }
+    /**
+   * Sends a POST request to the specified path on the Sonar API with the provided body.
+   * Utilizes a 60-second timeout to handle potential delays gracefully.
+   *
+   * @param path - The API endpoint path to which the request is sent.
+   * @param body - The request payload to be sent in the POST request.
+   * @returns A promise that resolves to the JSON response from the API.
+   * @throws An error with a fun timeout message if the request exceeds 60 seconds.
+   *         Throws the original error if the request fails for any other reason.
+   */
     async fetchApi(path, body) {
         // Use require instead of dynamic import
         const fetch = require('node-fetch');
@@ -192,8 +205,8 @@ class SonarApiService {
     /**
      * Optimize a prompt using a system message.
      */
-    async optimizePrompt(raw) {
-        const systemPrompt = optimizeSystemPrompt;
+    async optimizePrompt(raw, userPromptRules) {
+        const systemPrompt = optimizeSystemPrompt(userPromptRules);
         const messages = [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: raw }
@@ -230,10 +243,21 @@ function extractJsonFromContent(content) {
         return null;
     }
 }
-// --- Legacy wrappers for extension code ---
-async function optimizeWithSonar(context, apiKey, model, searchContextSize) {
+/**
+ * Optimize a prompt using a system message, optionally providing user-defined
+ * prompt rules to apply to the input context.
+ *
+ * @param context - The prompt to optimize.
+ * @param apiKey - The Sonar API key.
+ * @param [model] - The Sonar model to use (default is 'sonar').
+ * @param [searchContextSize] - The search context size to use (default is 'medium').
+ * @param [userPromptRules] - The user-defined prompt rules to apply to the input context
+ *  (default is '').
+ * @returns The optimized prompt.
+ */
+async function optimizeWithSonar(context, apiKey, model, searchContextSize, userPromptRules) {
     const service = new SonarApiService(apiKey);
-    const systemPrompt = optimizeSystemPrompt;
+    const systemPrompt = optimizeSystemPrompt(userPromptRules ?? '');
     const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: context }
@@ -244,7 +268,6 @@ async function optimizeWithSonar(context, apiKey, model, searchContextSize) {
         web_search_options: { search_context_size: searchContextSize || 'medium' }
     });
     return extractContentFromResponse(response);
-    // return service.optimizePrompt(context);
 }
 async function runWithSonarApi(prompt, apiKey, model, searchContextSize) {
     const service = new SonarApiService(apiKey);
@@ -276,109 +299,4 @@ async function generateExamplesWithSonar(instruction, numExamples, apiKey, model
     const result = await runWithSonarApi(prompt, apiKey, model, searchContextSize);
     return result?.choices?.[0]?.message?.content?.trim() || '';
 }
-// async function runWithSonar(context: vscode.ExtensionContext) {
-//   outputChannel.appendLine('Run with Sonar command triggered');
-//   const editor = vscode.window.activeTextEditor;
-//   if (!editor) {
-//     outputChannel.appendLine('No active editor found');
-//     return;
-//   }
-//   const selection = editor.selection;
-//   const prompt = editor.document.getText(selection) || editor.document.getText();
-//   if (!prompt) { vscode.window.showErrorMessage('No prompt found.'); return; }
-//   const apiKey = vscode.workspace.getConfiguration().get<string>('reprompt.sonarApiKey');
-//   if (!apiKey) { vscode.window.showErrorMessage('Set reprompt.sonarApiKey in settings.'); return; }
-//   // Start timing the process
-//   const startTime = Date.now();
-//   // Select a random theme for this operation
-//   const theme = getRandomTheme();
-//   outputChannel.appendLine(`Using theme with first message: ${theme.preparing}`);
-//   try {
-//     await vscode.window.withProgress(
-//       {
-//         location: vscode.ProgressLocation.Notification,
-//         title: 'Running prompt with Sonar...',
-//         cancellable: false
-//       },
-//       async (progress) => {
-//         // Initial progress
-//         progress.report({ message: theme.preparing });
-//         await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
-//         // Sending request
-//         progress.report({ message: theme.sending });
-//         const result = await runWithSonarApi(prompt, apiKey);
-//         // Calculate elapsed time
-//         const elapsedTime = Date.now() - startTime;
-//         // Add elapsed time to the result object
-//         result.elapsedTime = elapsedTime;
-//         // Processing response
-//         progress.report({ message: theme.processing });
-//         await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UI update
-//         // Creating webview
-//         progress.report({ message: theme.applying });
-//         const panel = vscode.window.createWebviewPanel(
-//           'sonarResponse',
-//           'Sonar Response',
-//           vscode.ViewColumn.Beside,
-//           { enableScripts: true, retainContextWhenHidden: true }
-//         );
-//         panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'images', 'icon.png'));
-//         // Set up message handler FIRST, before setting HTML content
-//         panel.webview.onDidReceiveMessage(
-//           async (message) => {
-//             outputChannel.appendLine(`Message received: ${JSON.stringify(message)}`);
-//             if (message.command === 'regenerate') {
-//               outputChannel.appendLine(`Regenerate request received for message: ${message.messageId}`);
-//               await vscode.window.withProgress(
-//                 {
-//                   location: vscode.ProgressLocation.Notification,
-//                   title: 'Regenerating response...',
-//                   cancellable: false
-//                 },
-//                 async (regProgress) => {
-//                   regProgress.report({ message: theme.preparing });
-//                   await new Promise(resolve => setTimeout(resolve, 200));
-//                   regProgress.report({ message: theme.sending });
-//                   try {
-//                     const regenStartTime = Date.now();
-//                     const newResult = await runWithSonarApi(prompt, apiKey);
-//                     const regenElapsedTime = Date.now() - regenStartTime;
-//                     newResult.elapsedTime = regenElapsedTime;
-//                     regProgress.report({ message: theme.processing });
-//                     await new Promise(resolve => setTimeout(resolve, 200));
-//                     regProgress.report({ message: 'Updating view...' });
-//                     panel.webview.html = renderSonarWebview(newResult);
-//                     regProgress.report({ message: theme.completed });
-//                     vscode.window.showInformationMessage('Response regenerated successfully!');
-//                   } catch (err: any) {
-//                     vscode.window.showErrorMessage('Regeneration failed: ' + err.message);
-//                     outputChannel.appendLine(`Regeneration error: ${err.message}`);
-//                   }
-//                 }
-//               );
-//             }
-//           },
-//           undefined,
-//           context.subscriptions
-//         );
-//         // THEN set the HTML content
-//         panel.webview.html = renderSonarWebview(result);
-//         // Done
-//         progress.report({ message: theme.highlighting });
-//         progress.report({ message: theme.completed });
-//       }
-//     );
-//   } catch (err: any) {
-//     outputChannel.appendLine(`Run with Sonar error: ${err.message}`);
-//     vscode.window.showErrorMessage('Sonar run failed: ' + err.message);
-//   }
-// }
-// function regenerateResponse(messageId) {
-//   // Send message to extension host through vscode API
-//   const vscode = acquireVsCodeApi();
-//   vscode.postMessage({
-//     command: 'regenerate',
-//     messageId: messageId
-//   });
-// }
 //# sourceMappingURL=sonar.js.map
