@@ -4,6 +4,18 @@ Transform simple ideas into powerful, structured prompts with context-aware AI a
 
 Whether you're crafting prompts for code generation, documentation, or technical problem-solving, Reprompt 2.0 helps you create prompts that yield more accurate, relevant, and useful AI responses—all within your familiar VS Code environment.
 
+## The Problem Reprompt Solves
+Crafting effective AI prompts for code generation, documentation, or technical problem-solving can be challenging and time-consuming. Developers often struggle to:
+
+- Clearly articulate their ideas in a way that AI models understand and respond to accurately.
+- Incorporate relevant project context, such as technology stacks and coding conventions, into prompts.
+- Maintain consistency and quality across team or project-specific prompt requirements.
+- Efficiently transform simple, vague ideas into detailed, structured prompts that yield useful AI responses.
+- Manage prompt execution and view AI responses seamlessly within their development environment.
+
+Reprompt addresses these challenges by automating prompt transformation with context awareness, applying custom rules, and integrating directly into VS Code. This streamlines the prompt engineering workflow, improves AI response relevance, and saves developers valuable time.
+
+
 ## Features
 
 - **Prompt Transformation:** Turn simple ideas into comprehensive, structured prompts with a single command.
@@ -12,6 +24,7 @@ Whether you're crafting prompts for code generation, documentation, or technical
 - **Prompt Execution:** Run prompts with Sonar and view responses in a formatted webview.
 - **Generate Examples:** Generate examples for your prompts to improve accuracy.
 - **Prompt Statistics:** View transformation statistics for original vs. transformed length, expansion ratio, processing time, and summary of changes.
+- **Prompt Scoring:** Reprompt assigns a dynamic Prompt Quality Score, giving you real-time feedback on how strong your prompt is across multiple dimensions; clarity, specificity, context fit and output targeting. This helps you iterate fast, write with intent, and debug vague or bloated prompts before running them.
 - **Sonar Model Selection:** Choose from multiple Sonar models (`sonar`, `sonar-pro`, `sonar-deep-research`, `sonar-reasoning`, `sonar-reasoning-pro`, `r1-1776`) to match your use case.
 - **Search Context Size Control:** Select how much web context is retrieved (`low`, `medium`, `high`) to balance cost and answer depth.
 - **Rich Markdown Rendering:** Sonar responses are displayed with headings, lists, code blocks (with copy button), and clickable links for a beautiful, readable experience.
